@@ -46,8 +46,8 @@ jobs:
       - name: Deploy to production
         run: |
           echo "Deploy landing page to production VPS"
-          # Use the automated deployment script:
-          ssh root@72.61.89.88 "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
+          # Use the automated deployment script with secrets:
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
           
   deploy-staging:
     if: github.ref == 'refs/heads/develop'

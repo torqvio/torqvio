@@ -46,8 +46,8 @@ jobs:
       - name: Deploy to production
         run: |
           echo "Deploy backend to production VPS"
-          # Automated deployment via Docker:
-          ssh root@72.61.89.88 "cd /var/www/torqvio && git pull origin main && cd backend && docker-compose down && docker-compose up -d --build"
+          # Automated deployment via Docker with secrets:
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd backend && docker-compose down && docker-compose up -d --build"
           
   deploy-staging:
     if: github.ref == 'refs/heads/develop'
