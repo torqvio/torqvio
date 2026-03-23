@@ -1,0 +1,74 @@
+---
+name: Documentation
+description: Report an issue with documentation or request documentation improvements
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Documentation Issue
+        
+        Help us improve the Torqvio documentation! Whether you found something unclear, outdated, or missing, we want to hear about it.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation issue is this?
+      options:
+        - API Reference
+        - Getting Started Guide
+        - Tutorial
+        - Code Examples
+        - Configuration Guide
+        - Troubleshooting
+        - README
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Issue Description
+      description: What's wrong with the documentation?
+      placeholder: |
+        The documentation says X but it should say Y...
+        This section is confusing because...
+        There's a typo in...
+        This example doesn't work...
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Location
+      description: Where in the documentation is this issue?
+      placeholder: |
+        URL: https://docs.torqvio.com/guides/workflows
+        Section: "Creating Your First Workflow"
+        Page: API Reference → Webhooks
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested Fix
+      description: How should this be fixed?
+      placeholder: |
+        Change "X" to "Y"
+        Add this example...
+        Remove this outdated section...
+        Clarify that...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that would be helpful.
+    validations:
+      required: false
