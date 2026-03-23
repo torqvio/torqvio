@@ -1,0 +1,11 @@
+blank_issue_enabled: false
+contact_links:
+  - name: Torqvio Documentation
+    url: https://docs.torqvio.com
+    about: Check the documentation for guides, API reference, and examples
+  - name: Torqvio Community Discussions
+    url: https://github.com/torqvio/torqvio/discussions
+    about: Ask questions and discuss with the community
+  - name: Torqvio Support
+    url: mailto:support@torqvio.com
+    about: Email support for technical issues (for Pro/Enterprise customers)
