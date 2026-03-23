@@ -68,9 +68,9 @@ jobs:
           
       - name: Deploy to production
         run: |
-          echo "Deploy backend to production"
-          # SSH deployment example:
-          # ssh user@torqvio.com "cd /var/www/torqvio && ./deploy-backend.sh"
+          echo "Deploy backend to production VPS"
+          # Automated deployment via Docker:
+          ssh root@72.61.89.88 "cd /var/www/torqvio && git pull origin main && cd backend && docker-compose down && docker-compose up -d --build"
           
   deploy-frontend:
     needs: detect-changes
@@ -107,9 +107,9 @@ jobs:
           
       - name: Deploy to production
         run: |
-          echo "Deploy frontend to production"
-          # Vercel deployment example:
-          # npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+          echo "Deploy frontend to production VPS"
+          # Automated deployment via Docker:
+          ssh root@72.61.89.88 "cd /var/www/torqvio && git pull origin main && cd frontend && docker-compose down && docker-compose up -d --build"
           
   deploy-landingpage:
     needs: detect-changes
@@ -146,9 +146,9 @@ jobs:
           
       - name: Deploy to production
         run: |
-          echo "Deploy landing page to production"
-          # Server deployment example:
-          # ssh user@torqvio.com "cd /var/www/torqvio && ./deploy-landingpage.sh"
+          echo "Deploy landing page to production VPS"
+          # Use the automated deployment script:
+          ssh root@72.61.89.88 "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
 
   deploy-all:
     needs: [detect-changes, deploy-backend, deploy-frontend, deploy-landingpage]

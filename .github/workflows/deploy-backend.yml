@@ -45,14 +45,9 @@ jobs:
           
       - name: Deploy to production
         run: |
-          echo "Deploy backend to production"
-          # Add your deployment logic here:
-          # - SSH to server: ssh user@server "cd /path && ./deploy-backend.sh"
-          # - Docker: docker build && docker push
-          # - Cloud platform: deploy script
-          # Example:
-          # scp -r dist/* user@server:/path/to/backend/
-          # ssh user@server "cd /path/to/backend && npm install && npm start"
+          echo "Deploy backend to production VPS"
+          # Automated deployment via Docker:
+          ssh root@72.61.89.88 "cd /var/www/torqvio && git pull origin main && cd backend && docker-compose down && docker-compose up -d --build"
           
   deploy-staging:
     if: github.ref == 'refs/heads/develop'

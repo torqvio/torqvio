@@ -45,14 +45,9 @@ jobs:
           
       - name: Deploy to production
         run: |
-          echo "Deploy landing page to production"
-          # Add your deployment logic here:
-          # - Vercel: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
-          # - Netlify: npx netlify deploy --prod --dir=out --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site ${{ secrets.NETLIFY_SITE_ID }}
-          # - SSH to server: scp -r out/* user@server:/var/www/torqvio/
-          # - Docker: docker build && docker push
-          # - Using server deployment script:
-          # ssh user@torqvio.com "cd /var/www/torqvio && ./deploy-landingpage.sh"
+          echo "Deploy landing page to production VPS"
+          # Use the automated deployment script:
+          ssh root@72.61.89.88 "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
           
   deploy-staging:
     if: github.ref == 'refs/heads/develop'
