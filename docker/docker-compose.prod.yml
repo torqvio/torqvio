@@ -98,6 +98,26 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  landingpage:
+    build:
+      context: ./landinpage
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${API_BASE_URL}
+    depends_on:
+      - backend
+    networks:
+      - internal
+    expose:
+      - "3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 networks:
   internal:
     driver: bridge

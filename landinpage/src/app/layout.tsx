@@ -22,6 +22,10 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://torqvio.com"),
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
   title: {
     default: "Torqvio — Durable Serverless Workflows, Crons & Webhooks",
     template: "%s | Torqvio",

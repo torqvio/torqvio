@@ -1,9 +1,9 @@
-name: Deploy Frontend
+name: Deploy Landing Page
 
 on:
   push:
     branches: [main]
-    paths: ['frontend/**']
+    paths: ['landinpage/**']
   workflow_dispatch:
 
 jobs:
@@ -18,24 +18,28 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          
+          cache-dependency-path: landinpage/package-lock.json
           
       - name: Install dependencies
         run: |
-          cd frontend
-          npm install
+          cd landinpage
+          npm ci
           
       - name: Run tests
         run: |
-          cd frontend
+          cd landinpage
           npm test || true
           
       - name: Build
         run: |
-          cd frontend
+          cd landinpage
           npm run build
           
       - name: Deploy to production
         run: |
-          echo "Deploy frontend to production"
+          echo "Deploy landing page to production"
           # Add your deployment logic here
+          # Example for Vercel:
+          # npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+          # Example for Netlify:
+          # npx netlify deploy --prod --dir=.next --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site ${{ secrets.NETLIFY_SITE_ID }}

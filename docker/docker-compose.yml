@@ -60,6 +60,20 @@ services:
       - ../frontend:/app
       - /app/node_modules
 
+  landingpage:
+    build:
+      context: ../landinpage
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8459
+    depends_on:
+      - backend
+    volumes:
+      - ../landinpage:/app
+      - /app/node_modules
+
 volumes:
   postgres_data:
   redis_data:

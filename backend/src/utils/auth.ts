@@ -206,7 +206,7 @@ const API_KEY_CACHE = new Map<string, { project: any; timestamp: number }>();
 const CACHE_TTL = 60000; // 1 minute cache
 
 // Enhanced API key authentication with rate limiting
-export function authenticateApiKey(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export async function authenticateApiKey(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   // Support both X-API-Key header and Authorization: Bearer format (as documented)
   let apiKey = req.headers['x-api-key'] as string;
   

@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { DocSection } from '../types'
 import { DocCard } from './DocCard'
-import { Book, Code2, Terminal, Users, Shield, Database, Server, Clock } from 'lucide-react'
+import { Book, Code2, Terminal, Users, Shield, Database, Server, Clock, Cloud } from 'lucide-react'
 
 interface SectionCardProps {
   section: DocSection
@@ -19,7 +19,8 @@ const iconMap = {
   Shield,
   Database,
   Server,
-  Clock
+  Clock,
+  Cloud
 }
 
 export function SectionCard({ section, index, searchQuery }: SectionCardProps) {

@@ -19,25 +19,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
           
-      - name: Install pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-          
       - name: Install dependencies
         run: |
           cd backend
-          pnpm install
+          npm ci
           
       - name: Run tests
         run: |
           cd backend
-          pnpm test || true
+          npm test || true
           
       - name: Build
         run: |
           cd backend
-          pnpm build
+          npm run build
           
       - name: Deploy to production
         run: |
