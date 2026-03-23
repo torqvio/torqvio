@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Github, Star, GitFork, Users } from "lucide-react";
+import { Github as GitHub, Star, GitFork, Users } from "lucide-react";
 
 interface GitHubStats {
   stars: number;
@@ -67,7 +67,7 @@ export function GitHubButton() {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <Github className="h-5 w-5" />
+        <GitHub className="h-5 w-5" />
         <span>View on GitHub</span>
       </a>
 
