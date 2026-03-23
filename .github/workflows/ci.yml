@@ -17,8 +17,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          
           
       - name: Install dependencies
         run: |
@@ -28,12 +26,17 @@ jobs:
       - name: Run tests
         run: |
           cd backend
-          npm test || true
+          npm test
           
-      - name: Type check
+      - name: Lint
         run: |
           cd backend
-          npm run type-check || true
+          npm run lint
+          
+      - name: Build
+        run: |
+          cd backend
+          npm run build
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -45,8 +48,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          
           
       - name: Install dependencies
         run: |
@@ -56,14 +57,45 @@ jobs:
       - name: Run tests
         run: |
           cd frontend
-          npm test || true
+          npm test || true  # Frontend may not have tests
+          
+      - name: Lint
+        run: |
+          cd frontend
+          npm run lint
           
       - name: Build
         run: |
           cd frontend
           npm run build
+
+  test-landing-page:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
           
-      - name: Type check
+      - name: Install dependencies
         run: |
-          cd frontend
-          npm run type-check || true
+          cd landinpage
+          npm install
+          
+      - name: Run tests
+        run: |
+          cd landinpage
+          npm test || true  # Landing page may not have tests
+          
+      - name: Lint
+        run: |
+          cd landinpage
+          npm run lint || true  # May not have lint script
+          
+      - name: Build
+        run: |
+          cd landinpage
+          npm run build

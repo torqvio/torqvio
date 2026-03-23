@@ -17,8 +17,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          
           
       - name: Install dependencies
         run: |
@@ -28,14 +26,52 @@ jobs:
       - name: Run tests
         run: |
           cd frontend
-          npm test || true
+          npm test || true  # Frontend may not have tests
+          
+      - name: Lint
+        run: |
+          cd frontend
+          npm run lint
           
       - name: Build
         run: |
           cd frontend
           npm run build
           
+      - name: Export static files
+        run: |
+          cd frontend
+          npm run export || true  # If using Next.js static export
+          
       - name: Deploy to production
         run: |
-          echo "Deploy frontend to production"
-          # Add your deployment logic here
+          echo "Deploy frontend to production VPS"
+          # Automated deployment via Docker with secrets:
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd frontend && docker-compose down && docker-compose up -d --build"
+          
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+          
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: Deploy to staging
+        run: |
+          echo "Deploy frontend to staging"
+          # Staging deployment logic
