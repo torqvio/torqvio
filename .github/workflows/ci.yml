@@ -17,13 +17,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: backend/pnpm-lock.yaml
+          cache: 'npm'
           
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
           
       - name: Install dependencies
         run: |
@@ -50,13 +49,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache: 'npm'
           
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
           
       - name: Install dependencies
         run: |
