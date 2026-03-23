@@ -43,11 +43,14 @@ jobs:
           cd landinpage
           npm run export || true  # If using Next.js static export
           
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+          
       - name: Deploy to production
         run: |
           echo "Deploy landing page to production VPS"
-          # Use the automated deployment script with secrets:
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
+          # Use password authentication with sshpass:
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
           
   deploy-staging:
     if: github.ref == 'refs/heads/develop'
