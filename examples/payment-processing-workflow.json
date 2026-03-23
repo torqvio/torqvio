@@ -1,0 +1,108 @@
+{
+  "name": "payment-processing-workflow",
+  "description": "A complete payment processing workflow with validation, payment gateway integration, and notifications",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "validate_payment",
+      "name": "Validate Payment Details",
+      "type": "validation",
+      "description": "Validate incoming payment data and check amount limits",
+      "config": {
+        "required_fields": ["amount", "currency", "payment_method", "customer_id"],
+        "amount_limits": {
+          "min": 0.50,
+          "max": 10000.00
+        }
+      }
+    },
+    {
+      "id": "process_payment",
+      "name": "Process Payment",
+      "type": "payment_gateway",
+      "description": "Process payment through Stripe with retry logic",
+      "config": {
+        "provider": "stripe",
+        "retry_count": 3,
+        "retry_delay": 1000
+      }
+    },
+    {
+      "id": "update_database",
+      "name": "Update Transaction Record",
+      "type": "database",
+      "description": "Save transaction record to database",
+      "config": {
+        "table": "transactions",
+        "operation": "insert"
+      }
+    },
+    {
+      "id": "send_confirmation",
+      "name": "Send Payment Confirmation",
+      "type": "notification",
+      "description": "Send payment confirmation to customer",
+      "config": {
+        "channels": ["email", "sms"],
+        "template": "payment_confirmation"
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "from": "validate_payment",
+      "to": "process_payment",
+      "condition": "success"
+    },
+    {
+      "from": "validate_payment",
+      "to": "complete",
+      "condition": "error"
+    },
+    {
+      "from": "process_payment",
+      "to": "update_database",
+      "condition": "success"
+    },
+    {
+      "from": "process_payment",
+      "to": "complete",
+      "condition": "error"
+    },
+    {
+      "from": "update_database",
+      "to": "send_confirmation",
+      "condition": "success"
+    },
+    {
+      "from": "update_database",
+      "to": "complete",
+      "condition": "error"
+    },
+    {
+      "from": "send_confirmation",
+      "to": "complete",
+      "condition": "success"
+    },
+    {
+      "from": "send_confirmation",
+      "to": "complete",
+      "condition": "error"
+    }
+  ],
+  "retryPolicy": {
+    "maxAttempts": 3,
+    "backoffStrategy": "exponential",
+    "retryableErrors": ["network_error", "timeout", "rate_limit_exceeded"]
+  },
+  "metadata": {
+    "category": "payment",
+    "tags": ["stripe", "payment", "transaction", "notification"],
+    "environment": {
+      "STRIPE_SECRET_KEY": "",
+      "DATABASE_URL": "",
+      "EMAIL_SERVICE_PROVIDER": ""
+    },
+    "value_proposition": "Reliable payment processing with automatic retry and customer notifications"
+  }
+}

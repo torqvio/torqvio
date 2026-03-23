@@ -1,0 +1,107 @@
+# ---- Dependencies ----
+node_modules/
+.pnpm-store/
+.yarn/
+bower_components/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ---- Build output ----
+dist/
+build/
+out/
+.next/
+.nuxt/
+.turbo/
+*.tsbuildinfo
+
+# ---- Environment / secrets — never commit these ----
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+.env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# ---- Logs ----
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---- Runtime / process ----
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ---- Testing ----
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+
+# ---- Development test files ----
+test-*.ts
+test-*.js
+test-*.cjs
+generate-test-*.js
+generate-test-*.cjs
+cleanup-*.ts
+run-*.ts
+
+# ---- Docker volumes (if mounted locally) ----
+postgres_data/
+redis_data/
+
+# ---- OS garbage ----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ---- Editor / IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.project
+.classpath
+*.iml
+.settings/
+.claude/
+
+# ---- Misc ----
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+tmp/
+temp/
+.temp/
+*.tmp
+
+# ---- Development docs/notes ----
+AETHERFLOW_COMPLETE.md
+WEEK9-16_IMPLEMENTATION_GUIDE.md
+next.md
+roadma.md
+stack.md
+email-integration-plan.md
+
+# ---- Config files that should be local ----
+aetherflow.config.js

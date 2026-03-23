@@ -1,0 +1,437 @@
+import { DatabaseConnection } from '../database/connection.js';
+import { CounterfactualEngine } from '../engine/CounterfactualEngine.js';
+
+export interface AuditReport {
+  reportId: string;
+  projectId: string;
+  period: {
+    start: Date;
+    end: Date;
+  };
+  generatedAt: Date;
+  complianceFrameworks: string[];
+  
+  financialSummary: {
+    totalProcessed: number;
+    totalFailed: number;
+    totalRecovered: number;
+    totalPreventedLoss: number;
+    recoveryRate: number;
+    efficiencyScore: number;
+  };
+  
+  auditTrail: Array<{
+    timestamp: Date;
+    action: string;
+    details: any;
+    userId?: string;
+    ipAddress?: string;
+  }>;
+  
+  riskAssessment: {
+    overallRisk: 'LOW' | 'MEDIUM' | 'HIGH';
+    factors: Array<{
+      factor: string;
+      risk: 'LOW' | 'MEDIUM' | 'HIGH';
+      description: string;
+    }>;
+  };
+  
+  recommendations: Array<{
+    priority: 'HIGH' | 'MEDIUM' | 'LOW';
+    category: string;
+    recommendation: string;
+    impact: string;
+  }>;
+}
+
+export interface ComplianceExport {
+  format: 'PDF' | 'CSV' | 'JSON';
+  includeAuditTrail: boolean;
+  includeRiskAssessment: boolean;
+  includeRecommendations: boolean;
+  watermark: boolean;
+}
+
+export class ComplianceService {
+  constructor(
+    private db: DatabaseConnection,
+    private counterfactualEngine: CounterfactualEngine
+  ) {}
+
+  async generateAuditReport(projectId: string, period: { start: Date, end: Date }): Promise<AuditReport> {
+    const days = Math.ceil((period.end.getTime() - period.start.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Get recovery and counterfactual data
+    const recoveryData = await this.getRecoveryStats(projectId, days);
+    const counterfactualData = await this.counterfactualEngine.calculateImpactSummary(projectId, days);
+    
+    // Get audit trail
+    const auditTrail = await this.getAuditTrail(projectId, period);
+    
+    // Generate risk assessment
+    const riskAssessment = this.generateRiskAssessment(recoveryData, counterfactualData);
+    
+    // Generate recommendations
+    const recommendations = this.generateRecommendations(recoveryData, counterfactualData, riskAssessment);
+
+    return {
+      reportId: this.generateReportId(),
+      projectId,
+      period,
+      generatedAt: new Date(),
+      complianceFrameworks: ['SOX', 'PCI-DSS', 'GDPR', 'SOC2'],
+      
+      financialSummary: {
+        totalProcessed: recoveryData.totalProcessed || 0,
+        totalFailed: recoveryData.totalFailed || 0,
+        totalRecovered: recoveryData.totalRecovered || 0,
+        totalPreventedLoss: counterfactualData.totalPreventedLoss,
+        recoveryRate: recoveryData.recoveryRate || 0,
+        efficiencyScore: counterfactualData.averageEfficiencyScore
+      },
+      
+      auditTrail,
+      riskAssessment,
+      recommendations
+    };
+  }
+
+  async exportComplianceReport(report: AuditReport, exportOptions: ComplianceExport): Promise<Buffer> {
+    switch (exportOptions.format) {
+      case 'PDF':
+        return await this.generatePDFReport(report, exportOptions);
+      case 'CSV':
+        return await this.generateCSVReport(report, exportOptions);
+      case 'JSON':
+        return await this.generateJSONReport(report, exportOptions);
+      default:
+        throw new Error(`Unsupported export format: ${exportOptions.format}`);
+    }
+  }
+
+  private async generatePDFReport(report: AuditReport, options: ComplianceExport): Promise<Buffer> {
+    // In a real implementation, this would use a PDF generation library like puppeteer
+    const htmlContent = this.generatePDFHTML(report, options);
+    
+    // For now, return a simple text-based "PDF"
+    const pdfContent = `
+TORQVIO COMPLIANCE REPORT
+============================
+
+Report ID: ${report.reportId}
+Project ID: ${report.projectId}
+Period: ${report.period.start.toDateString()} - ${report.period.end.toDateString()}
+Generated: ${report.generatedAt.toISOString()}
+
+COMPLIANCE FRAMEWORKS
+${report.complianceFrameworks.join(', ')}
+
+FINANCIAL SUMMARY
+----------------
+Total Processed: €${report.financialSummary.totalProcessed.toLocaleString()}
+Total Failed: €${report.financialSummary.totalFailed.toLocaleString()}
+Total Recovered: €${report.financialSummary.totalRecovered.toLocaleString()}
+Total Prevented Loss: €${report.financialSummary.totalPreventedLoss.toLocaleString()}
+Recovery Rate: ${report.financialSummary.recoveryRate.toFixed(2)}%
+Efficiency Score: ${(report.financialSummary.efficiencyScore * 100).toFixed(1)}%
+
+RISK ASSESSMENT
+---------------
+Overall Risk: ${report.riskAssessment.overallRisk}
+
+${options.includeRiskAssessment ? report.riskAssessment.factors.map(f => 
+  `${f.factor}: ${f.risk} - ${f.description}`
+).join('\n') : 'Risk assessment not included'}
+
+RECOMMENDATIONS
+---------------
+${options.includeRecommendations ? report.recommendations.map(r => 
+  `[${r.priority}] ${r.category}: ${r.recommendation}\n  Impact: ${r.impact}`
+).join('\n\n') : 'Recommendations not included'}
+
+${options.watermark ? '\n[CONFIDENTIAL - Generated by Torqvio Compliance System]' : ''}
+    `.trim();
+    
+    return Buffer.from(pdfContent, 'utf-8');
+  }
+
+  private async generateCSVReport(report: AuditReport, options: ComplianceExport): Promise<Buffer> {
+    const csvData = [
+      ['Metric', 'Value'],
+      ['Report ID', report.reportId],
+      ['Project ID', report.projectId],
+      ['Period Start', report.period.start.toISOString()],
+      ['Period End', report.period.end.toISOString()],
+      ['Total Processed', report.financialSummary.totalProcessed.toString()],
+      ['Total Failed', report.financialSummary.totalFailed.toString()],
+      ['Total Recovered', report.financialSummary.totalRecovered.toString()],
+      ['Total Prevented Loss', report.financialSummary.totalPreventedLoss.toString()],
+      ['Recovery Rate', report.financialSummary.recoveryRate.toString()],
+      ['Efficiency Score', report.financialSummary.efficiencyScore.toString()],
+      ['Overall Risk', report.riskAssessment.overallRisk]
+    ];
+
+    if (options.includeAuditTrail && report.auditTrail.length > 0) {
+      csvData.push(['']);
+      csvData.push(['Audit Trail']);
+      csvData.push(['Timestamp', 'Action', 'Details', 'User ID', 'IP Address']);
+      
+      report.auditTrail.forEach(entry => {
+        csvData.push([
+          entry.timestamp.toISOString(),
+          entry.action,
+          JSON.stringify(entry.details),
+          entry.userId || '',
+          entry.ipAddress || ''
+        ]);
+      });
+    }
+
+    const csvContent = csvData.map(row => 
+      row.map(field => `"${field.toString().replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    return Buffer.from(csvContent, 'utf-8');
+  }
+
+  private async generateJSONReport(report: AuditReport, options: ComplianceExport): Promise<Buffer> {
+    const exportData: any = {
+      report: {
+        id: report.reportId,
+        projectId: report.projectId,
+        period: report.period,
+        generatedAt: report.generatedAt,
+        complianceFrameworks: report.complianceFrameworks,
+        financialSummary: report.financialSummary
+      }
+    };
+
+    if (options.includeAuditTrail) {
+      exportData.auditTrail = report.auditTrail;
+    }
+
+    if (options.includeRiskAssessment) {
+      exportData.riskAssessment = report.riskAssessment;
+    }
+
+    if (options.includeRecommendations) {
+      exportData.recommendations = report.recommendations;
+    }
+
+    if (options.watermark) {
+      exportData.watermark = 'Generated by Torqvio Compliance System';
+    }
+
+    return Buffer.from(JSON.stringify(exportData, null, 2), 'utf-8');
+  }
+
+  private generatePDFHTML(report: AuditReport, options: ComplianceExport): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Torqvio Compliance Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { border-bottom: 2px solid #9333ea; padding-bottom: 20px; margin-bottom: 30px; }
+        .section { margin-bottom: 30px; }
+        .metric { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .risk-high { color: #dc2626; }
+        .risk-medium { color: #f59e0b; }
+        .risk-low { color: #059669; }
+        ${options.watermark ? '.watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 100px; color: rgba(0,0,0,0.1); z-index: -1; }' : ''}
+    </style>
+</head>
+<body>
+    ${options.watermark ? '<div class="watermark">CONFIDENTIAL</div>' : ''}
+    
+    <div class="header">
+        <h1>Torqvio Compliance Report</h1>
+        <p>Report ID: ${report.reportId}</p>
+        <p>Period: ${report.period.start.toDateString()} - ${report.period.end.toDateString()}</p>
+    </div>
+    
+    <div class="section">
+        <h2>Financial Summary</h2>
+        <div class="metric"><span>Total Processed</span><span>€${report.financialSummary.totalProcessed.toLocaleString()}</span></div>
+        <div class="metric"><span>Total Recovered</span><span>€${report.financialSummary.totalRecovered.toLocaleString()}</span></div>
+        <div class="metric"><span>Total Prevented Loss</span><span>€${report.financialSummary.totalPreventedLoss.toLocaleString()}</span></div>
+        <div class="metric"><span>Recovery Rate</span><span>${report.financialSummary.recoveryRate.toFixed(2)}%</span></div>
+    </div>
+    
+    ${options.includeRiskAssessment ? `
+    <div class="section">
+        <h2>Risk Assessment</h2>
+        <p class="risk-${report.riskAssessment.overallRisk.toLowerCase()}">Overall Risk: ${report.riskAssessment.overallRisk}</p>
+        ${report.riskAssessment.factors.map(f => `
+            <div class="metric">
+                <span>${f.factor}</span>
+                <span class="risk-${f.risk.toLowerCase()}">${f.risk}: ${f.description}</span>
+            </div>
+        `).join('')}
+    </div>
+    ` : ''}
+    
+    ${options.includeRecommendations ? `
+    <div class="section">
+        <h2>Recommendations</h2>
+        ${report.recommendations.map(r => `
+            <div style="margin-bottom: 15px; padding: 10px; background: #f9fafb; border-left: 4px solid #9333ea;">
+                <strong class="risk-${r.priority.toLowerCase()}">[${r.priority}] ${r.category}</strong><br>
+                ${r.recommendation}<br>
+                <small>Impact: ${r.impact}</small>
+            </div>
+        `).join('')}
+    </div>
+    ` : ''}
+</body>
+</html>
+    `;
+  }
+
+  private async getRecoveryStats(projectId: string, days: number): Promise<any> {
+    // This would integrate with the existing RecoveryAnalyticsModel
+    // For now, return placeholder data
+    return {
+      totalProcessed: 1000000,
+      totalFailed: 35000,
+      totalRecovered: 28000,
+      recoveryRate: 80.0
+    };
+  }
+
+  private async getAuditTrail(projectId: string, period: { start: Date, end: Date }): Promise<any[]> {
+    // Query audit logs for the period
+    const query = `
+      SELECT action, details, timestamp
+      FROM audit_logs
+      WHERE timestamp >= $1 AND timestamp <= $2
+      ORDER BY timestamp DESC
+      LIMIT 100
+    `;
+    
+    const logs = await this.db.query(query, [period.start, period.end]);
+    
+    return logs.map(log => ({
+      timestamp: new Date(log.timestamp),
+      action: log.action,
+      details: log.details,
+      userId: log.user_id,
+      ipAddress: log.ip_address
+    }));
+  }
+
+  private generateRiskAssessment(recoveryData: any, counterfactualData: any): any {
+    const factors = [];
+    let overallRisk: 'LOW' | 'MEDIUM' | 'HIGH' = 'LOW';
+
+    // Recovery rate risk
+    if (recoveryData.recoveryRate < 50) {
+      factors.push({
+        factor: 'Recovery Rate',
+        risk: 'HIGH' as const,
+        description: 'Recovery rate is below 50%, indicating potential issues with retry logic'
+      });
+      overallRisk = 'HIGH';
+    } else if (recoveryData.recoveryRate < 75) {
+      factors.push({
+        factor: 'Recovery Rate',
+        risk: 'MEDIUM' as const,
+        description: 'Recovery rate could be improved with better retry strategies'
+      });
+      overallRisk = overallRisk === 'HIGH' ? 'HIGH' : 'MEDIUM';
+    } else {
+      factors.push({
+        factor: 'Recovery Rate',
+        risk: 'LOW' as const,
+        description: 'Recovery rate is within acceptable range'
+      });
+    }
+
+    // Efficiency score risk
+    if (counterfactualData.averageEfficiencyScore < 0.5) {
+      factors.push({
+        factor: 'Efficiency Score',
+        risk: 'HIGH' as const,
+        description: 'Low efficiency score indicates excessive retry attempts'
+      });
+      overallRisk = 'HIGH';
+    } else if (counterfactualData.averageEfficiencyScore < 0.7) {
+      factors.push({
+        factor: 'Efficiency Score',
+        risk: 'MEDIUM' as const,
+        description: 'Efficiency could be optimized'
+      });
+      overallRisk = overallRisk === 'HIGH' ? 'HIGH' : 'MEDIUM';
+    }
+
+    return {
+      overallRisk,
+      factors
+    };
+  }
+
+  private generateRecommendations(recoveryData: any, counterfactualData: any, riskAssessment: any): any[] {
+    const recommendations = [];
+
+    if (recoveryData.recoveryRate < 75) {
+      recommendations.push({
+        priority: 'HIGH' as const,
+        category: 'Recovery Optimization',
+        recommendation: 'Implement intelligent retry scheduling based on payment processor response codes',
+        impact: 'Could improve recovery rate by 15-25%'
+      });
+    }
+
+    if (counterfactualData.averageEfficiencyScore < 0.7) {
+      recommendations.push({
+        priority: 'MEDIUM' as const,
+        category: 'Efficiency Improvement',
+        recommendation: 'Reduce retry attempts for low-value transactions to improve efficiency',
+        impact: 'Could improve efficiency score by 10-20%'
+      });
+    }
+
+    recommendations.push({
+      priority: 'LOW' as const,
+      category: 'Monitoring',
+      recommendation: 'Set up automated alerts for recovery rate drops below 70%',
+      impact: 'Early detection of issues prevents revenue loss'
+    });
+
+    return recommendations;
+  }
+
+  private generateReportId(): string {
+    return `AUDIT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  }
+
+  async scheduleComplianceReports(): Promise<void> {
+    // Get all enterprise projects that need monthly compliance reports
+    const query = `
+      SELECT p.id as project_id, ti.company_name
+      FROM projects p
+      JOIN tenant_identity ti ON p.id = ti.project_id
+      WHERE ti.revenue_tier = 'enterprise'
+    `;
+    
+    const projects = await this.db.query(query);
+    
+    for (const project of projects) {
+      try {
+        const period = {
+          start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+          end: new Date()
+        };
+        
+        const report = await this.generateAuditReport(project.project_id, period);
+        console.log(`Compliance report generated for enterprise project: ${project.project_id}`);
+        
+        // In a real implementation, this would send the report to stakeholders
+      } catch (error) {
+        console.error(`Failed to generate compliance report for project ${project.project_id}:`, error);
+      }
+    }
+  }
+}

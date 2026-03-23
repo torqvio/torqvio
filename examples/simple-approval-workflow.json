@@ -1,0 +1,99 @@
+{
+  "name": "simple-approval-workflow",
+  "description": "A basic workflow that requires approval before proceeding to the next step",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "name": "Start Workflow",
+      "description": "Initial trigger point for the workflow"
+    },
+    {
+      "id": "validate-input",
+      "type": "validation",
+      "name": "Validate Input",
+      "description": "Validate the incoming request data",
+      "config": {
+        "schema": {
+          "type": "object",
+          "required": ["email", "amount"],
+          "properties": {
+            "email": {
+              "type": "string",
+              "format": "email"
+            },
+            "amount": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "approval-required",
+      "type": "approval",
+      "name": "Manager Approval",
+      "description": "Wait for manager approval before proceeding",
+      "config": {
+        "approvers": ["manager@company.com"],
+        "timeout": 86400,
+        "escalation": {
+          "timeout": 43200,
+          "escalateTo": ["director@company.com"]
+        }
+      }
+    },
+    {
+      "id": "send-email",
+      "type": "action",
+      "name": "Send Confirmation Email",
+      "description": "Send email confirmation after approval",
+      "config": {
+        "provider": "smtp",
+        "template": "approval-confirmation",
+        "recipients": ["{{input.email}}"],
+        "subject": "Your request has been approved"
+      }
+    },
+    {
+      "id": "complete",
+      "type": "completion",
+      "name": "Complete",
+      "description": "Workflow completed successfully"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "validate-input",
+      "condition": "always"
+    },
+    {
+      "from": "validate-input",
+      "to": "approval-required",
+      "condition": "success"
+    },
+    {
+      "from": "validate-input",
+      "to": "complete",
+      "condition": "error"
+    },
+    {
+      "from": "approval-required",
+      "to": "send-email",
+      "condition": "approved"
+    },
+    {
+      "from": "approval-required",
+      "to": "complete",
+      "condition": "rejected"
+    },
+    {
+      "from": "send-email",
+      "to": "complete",
+      "condition": "always"
+    }
+  ]
+}

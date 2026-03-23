@@ -1,0 +1,171 @@
+{
+  "name": "data-pipeline-workflow",
+  "description": "A workflow that processes data through multiple stages with error handling and retries",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "name": "Start Data Pipeline",
+      "description": "Initial trigger for data processing pipeline"
+    },
+    {
+      "id": "extract-data",
+      "type": "action",
+      "name": "Extract Data",
+      "description": "Extract data from source system",
+      "config": {
+        "source": "api",
+        "endpoint": "https://api.example.com/data",
+        "method": "GET",
+        "headers": {
+          "Authorization": "Bearer {{secrets.API_TOKEN}}"
+        },
+        "retryPolicy": {
+          "maxAttempts": 3,
+          "backoff": "exponential",
+          "initialDelay": 1000
+        }
+      }
+    },
+    {
+      "id": "transform-data",
+      "type": "action",
+      "name": "Transform Data",
+      "description": "Transform and clean the extracted data",
+      "config": {
+        "transformations": [
+          {
+            "type": "map",
+            "function": "normalizeFields"
+          },
+          {
+            "type": "filter",
+            "condition": "status === 'active'"
+          },
+          {
+            "type": "validate",
+            "schema": "data-schema-v2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "validate-quality",
+      "type": "validation",
+      "name": "Quality Check",
+      "description": "Validate data quality before loading",
+      "config": {
+        "rules": [
+          {
+            "name": "completeness",
+            "threshold": 0.95,
+            "field": "required_fields"
+          },
+          {
+            "name": "accuracy",
+            "threshold": 0.98,
+            "field": "data_accuracy"
+          }
+        ]
+      }
+    },
+    {
+      "id": "load-data",
+      "type": "action",
+      "name": "Load Data",
+      "description": "Load transformed data to destination",
+      "config": {
+        "destination": "database",
+        "connection": "postgresql://localhost:5432/datawarehouse",
+        "table": "processed_data",
+        "batchSize": 1000,
+        "conflictResolution": "update"
+      }
+    },
+    {
+      "id": "notify-success",
+      "type": "action",
+      "name": "Send Success Notification",
+      "description": "Notify team about successful pipeline completion",
+      "config": {
+        "channels": ["slack", "email"],
+        "message": "Data pipeline completed successfully. Processed {{stats.recordCount}} records."
+      }
+    },
+    {
+      "id": "handle-error",
+      "type": "action",
+      "name": "Handle Error",
+      "description": "Error handling and notification",
+      "config": {
+        "channels": ["slack"],
+        "message": "Data pipeline failed: {{error.message}}",
+        "escalation": true
+      }
+    },
+    {
+      "id": "complete",
+      "type": "completion",
+      "name": "Complete",
+      "description": "Pipeline completed"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "extract-data",
+      "condition": "always"
+    },
+    {
+      "from": "extract-data",
+      "to": "transform-data",
+      "condition": "success"
+    },
+    {
+      "from": "extract-data",
+      "to": "handle-error",
+      "condition": "error"
+    },
+    {
+      "from": "transform-data",
+      "to": "validate-quality",
+      "condition": "success"
+    },
+    {
+      "from": "transform-data",
+      "to": "handle-error",
+      "condition": "error"
+    },
+    {
+      "from": "validate-quality",
+      "to": "load-data",
+      "condition": "success"
+    },
+    {
+      "from": "validate-quality",
+      "to": "handle-error",
+      "condition": "error"
+    },
+    {
+      "from": "load-data",
+      "to": "notify-success",
+      "condition": "success"
+    },
+    {
+      "from": "load-data",
+      "to": "handle-error",
+      "condition": "error"
+    },
+    {
+      "from": "notify-success",
+      "to": "complete",
+      "condition": "always"
+    },
+    {
+      "from": "handle-error",
+      "to": "complete",
+      "condition": "always"
+    }
+  ]
+}

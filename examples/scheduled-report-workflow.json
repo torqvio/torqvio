@@ -1,0 +1,167 @@
+{
+  "name": "scheduled-report-workflow",
+  "description": "A workflow that generates and distributes reports on a schedule",
+  "version": "1.0.0",
+  "schedule": {
+    "type": "cron",
+    "expression": "0 9 * * 1",
+    "timezone": "UTC"
+  },
+  "steps": [
+    {
+      "id": "start",
+      "type": "trigger",
+      "name": "Scheduled Trigger",
+      "description": "Triggered by schedule"
+    },
+    {
+      "id": "gather-data",
+      "type": "action",
+      "name": "Gather Report Data",
+      "description": "Collect data from multiple sources",
+      "config": {
+        "sources": [
+          {
+            "name": "sales_data",
+            "query": "SELECT * FROM sales WHERE created_at >= '{{lastRun}}'",
+            "connection": "postgresql://localhost:5432/analytics"
+          },
+          {
+            "name": "user_metrics",
+            "endpoint": "https://api.analytics.com/metrics",
+            "params": {
+              "period": "weekly",
+              "format": "json"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "generate-report",
+      "type": "action",
+      "name": "Generate Report",
+      "description": "Create the report document",
+      "config": {
+        "template": "weekly-report-template",
+        "format": "pdf",
+        "data": {
+          "title": "Weekly Performance Report",
+          "period": "{{reportPeriod}}",
+          "sections": [
+            {
+              "name": "executive_summary",
+              "template": "exec-summary"
+            },
+            {
+              "name": "sales_performance",
+              "data": "{{sales_data}}"
+            },
+            {
+              "name": "user_analytics",
+              "data": "{{user_metrics}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "quality-check",
+      "type": "validation",
+      "name": "Report Quality Check",
+      "description": "Validate generated report",
+      "config": {
+        "checks": [
+          {
+            "type": "file_size",
+            "min": 1000,
+            "max": 10000000
+          },
+          {
+            "type": "content_validation",
+            "requiredSections": ["executive_summary", "sales_performance", "user_analytics"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "distribute-report",
+      "type": "action",
+      "name": "Distribute Report",
+      "description": "Send report to stakeholders",
+      "config": {
+        "channels": [
+          {
+            "type": "email",
+            "recipients": [
+              "executives@company.com",
+              "managers@company.com"
+            ],
+            "subject": "Weekly Report - {{reportPeriod}}",
+            "body": "Please find attached the weekly performance report.",
+            "attachments": ["{{reportFile}}"]
+          },
+          {
+            "type": "slack",
+            "channel": "#reports",
+            "message": "Weekly report is now available: {{reportUrl}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "archive-report",
+      "type": "action",
+      "name": "Archive Report",
+      "description": "Store report in document management system",
+      "config": {
+        "storage": "s3",
+        "bucket": "company-reports",
+        "path": "reports/{{reportPeriod}}/weekly-report.pdf",
+        "metadata": {
+          "type": "weekly_report",
+          "generated_at": "{{timestamp}}",
+          "version": "1.0"
+        }
+      }
+    },
+    {
+      "id": "complete",
+      "type": "completion",
+      "name": "Complete",
+      "description": "Report generation and distribution completed"
+    }
+  ],
+  "transitions": [
+    {
+      "from": "start",
+      "to": "gather-data",
+      "condition": "always"
+    },
+    {
+      "from": "gather-data",
+      "to": "generate-report",
+      "condition": "success"
+    },
+    {
+      "from": "generate-report",
+      "to": "quality-check",
+      "condition": "success"
+    },
+    {
+      "from": "quality-check",
+      "to": "distribute-report",
+      "condition": "success"
+    },
+    {
+      "from": "distribute-report",
+      "to": "archive-report",
+      "condition": "success"
+    },
+    {
+      "from": "archive-report",
+      "to": "complete",
+      "condition": "always"
+    }
+  ]
+}
