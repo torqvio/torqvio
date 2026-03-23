@@ -21,23 +21,62 @@ jobs:
       - name: Install dependencies
         run: |
           cd landinpage
-          npm ci
+          npm install
           
       - name: Run tests
         run: |
           cd landinpage
-          npm test || true
+          npm test || true  # Landing page may not have tests
+          
+      - name: Lint
+        run: |
+          cd landinpage
+          npm run lint || true  # May not have lint script
           
       - name: Build
         run: |
           cd landinpage
           npm run build
           
+      - name: Export static files
+        run: |
+          cd landinpage
+          npm run export || true  # If using Next.js static export
+          
       - name: Deploy to production
         run: |
           echo "Deploy landing page to production"
-          # Add your deployment logic here
-          # Example for Vercel:
-          # npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
-          # Example for Netlify:
-          # npx netlify deploy --prod --dir=.next --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site ${{ secrets.NETLIFY_SITE_ID }}
+          # Add your deployment logic here:
+          # - Vercel: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+          # - Netlify: npx netlify deploy --prod --dir=out --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site ${{ secrets.NETLIFY_SITE_ID }}
+          # - SSH to server: scp -r out/* user@server:/var/www/torqvio/
+          # - Docker: docker build && docker push
+          # - Using server deployment script:
+          # ssh user@torqvio.com "cd /var/www/torqvio && ./deploy-landingpage.sh"
+          
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: |
+          cd landinpage
+          npm install
+          
+      - name: Build
+        run: |
+          cd landinpage
+          npm run build
+          
+      - name: Deploy to staging
+        run: |
+          echo "Deploy landing page to staging"
+          # Staging deployment logic

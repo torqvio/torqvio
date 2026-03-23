@@ -18,7 +18,6 @@ jobs:
         with:
           node-version: '22'
           
-          
       - name: Install dependencies
         run: |
           cd frontend
@@ -27,14 +26,55 @@ jobs:
       - name: Run tests
         run: |
           cd frontend
-          npm test || true
+          npm test || true  # Frontend may not have tests
+          
+      - name: Lint
+        run: |
+          cd frontend
+          npm run lint
           
       - name: Build
         run: |
           cd frontend
           npm run build
           
+      - name: Export static files
+        run: |
+          cd frontend
+          npm run export || true  # If using Next.js static export
+          
       - name: Deploy to production
         run: |
           echo "Deploy frontend to production"
-          # Add your deployment logic here
+          # Add your deployment logic here:
+          # - Vercel: npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+          # - Netlify: npx netlify deploy --prod --dir=out --auth ${{ secrets.NETLIFY_AUTH_TOKEN }} --site ${{ secrets.NETLIFY_SITE_ID }}
+          # - SSH: scp -r out/* user@server:/path/to/frontend/
+          # - Docker: docker build && docker push
+          
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+          
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: Deploy to staging
+        run: |
+          echo "Deploy frontend to staging"
+          # Staging deployment logic

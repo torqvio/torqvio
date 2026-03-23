@@ -1,0 +1,169 @@
+name: Deploy All Services
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      landingpage: ${{ steps.changes.outputs.landingpage }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            landingpage:
+              - 'landinpage/**'
+
+  deploy-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm install
+          
+      - name: Run tests
+        run: |
+          cd backend
+          npm test
+          
+      - name: Lint
+        run: |
+          cd backend
+          npm run lint
+          
+      - name: Format check
+        run: |
+          cd backend
+          npm run format -- --check
+          
+      - name: Build
+        run: |
+          cd backend
+          npm run build
+          
+      - name: Deploy to production
+        run: |
+          echo "Deploy backend to production"
+          # SSH deployment example:
+          # ssh user@torqvio.com "cd /var/www/torqvio && ./deploy-backend.sh"
+          
+  deploy-frontend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+          
+      - name: Run tests
+        run: |
+          cd frontend
+          npm test || true
+          
+      - name: Lint
+        run: |
+          cd frontend
+          npm run lint
+          
+      - name: Build
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: Deploy to production
+        run: |
+          echo "Deploy frontend to production"
+          # Vercel deployment example:
+          # npx vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+          
+  deploy-landingpage:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.landingpage == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: |
+          cd landinpage
+          npm install
+          
+      - name: Run tests
+        run: |
+          cd landinpage
+          npm test || true
+          
+      - name: Lint
+        run: |
+          cd landinpage
+          npm run lint || true
+          
+      - name: Build
+        run: |
+          cd landinpage
+          npm run build
+          
+      - name: Deploy to production
+        run: |
+          echo "Deploy landing page to production"
+          # Server deployment example:
+          # ssh user@torqvio.com "cd /var/www/torqvio && ./deploy-landingpage.sh"
+
+  deploy-all:
+    needs: [detect-changes, deploy-backend, deploy-frontend, deploy-landingpage]
+    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success' || needs.deploy-landingpage.result == 'success')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: ${{ needs.deploy-backend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: ${{ needs.deploy-frontend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Landing Page: ${{ needs.deploy-landingpage.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Changes detected in:" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: ${{ needs.detect-changes.outputs.backend }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: ${{ needs.detect-changes.outputs.frontend }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Landing Page: ${{ needs.detect-changes.outputs.landingpage }}" >> $GITHUB_STEP_SUMMARY

@@ -16,25 +16,67 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '22'
           
       - name: Install dependencies
         run: |
           cd backend
-          npm ci
+          npm install
           
       - name: Run tests
         run: |
           cd backend
-          npm test || true
+          npm test
+          
+      - name: Lint
+        run: |
+          cd backend
+          npm run lint
           
       - name: Build
         run: |
           cd backend
           npm run build
           
+      - name: Format check
+        run: |
+          cd backend
+          npm run format -- --check
+          
       - name: Deploy to production
         run: |
           echo "Deploy backend to production"
-          # Add your deployment logic here
+          # Add your deployment logic here:
+          # - SSH to server: ssh user@server "cd /path && ./deploy-backend.sh"
+          # - Docker: docker build && docker push
+          # - Cloud platform: deploy script
+          # Example:
+          # scp -r dist/* user@server:/path/to/backend/
+          # ssh user@server "cd /path/to/backend && npm install && npm start"
+          
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          
+      - name: Install dependencies
+        run: |
+          cd backend
+          npm install
+          
+      - name: Build
+        run: |
+          cd backend
+          npm run build
+          
+      - name: Deploy to staging
+        run: |
+          echo "Deploy backend to staging"
+          # Staging deployment logic
