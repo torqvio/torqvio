@@ -1,0 +1,47 @@
+version: '3.8'
+
+# Landing page only deployment for torqvio.com
+# Lives at /var/www/torqvio/docker-compose.landing-only.yml on VPS
+
+services:
+  landingpage:
+    build:
+      context: ./landinpage
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.torqvio.com
+    expose:
+      - "3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx-landing.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot
+    depends_on:
+      - landingpage
+    networks:
+      - internal
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/certbot:/var/www/certbot
+    command: certonly --webroot --webroot-path=/var/www/certbot --email admin@torqvio.com --agree-tos --no-eff-email -d torqvio.com
+
+networks:
+  internal:
+    driver: bridge
