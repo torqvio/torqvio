@@ -1,0 +1,63 @@
+---
+name: Question
+description: Ask a question about Torqvio
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Got a Question?
+        
+        Please check the following resources before asking:
+        - [Documentation](https://docs.torqvio.com)
+        - [FAQ](https://docs.torqvio.com/faq)
+        - [Existing issues](../../issues?q=is%3Aissue+is%3Aopen+label%3Aquestion)
+        
+        If you can't find an answer, please fill out the form below.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: Be as specific as possible. Include what you've tried and what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What are you trying to accomplish? What's your use case?
+      placeholder: |
+        I'm trying to build a workflow that...
+        I'm using Torqvio for...
+        My setup includes...
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: What's your setup?
+      placeholder: |
+        - OS: Ubuntu 22.04 / macOS 14 / Windows 11
+        - Node.js version: 18.x / 20.x
+        - Torqvio version: 1.x.x
+        - Browser (if applicable): Chrome 120
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checked-resources
+    attributes:
+      label: I've already checked...
+      description: Please confirm you've looked for answers in these places.
+      options:
+        - label: Documentation (docs.torqvio.com)
+          required: true
+        - label: Existing issues and discussions
+          required: true
+        - label: FAQ and troubleshooting guides
+          required: true
