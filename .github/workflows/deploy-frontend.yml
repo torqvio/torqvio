@@ -43,11 +43,14 @@ jobs:
           cd frontend
           npm run export || true  # If using Next.js static export
           
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+          
       - name: Deploy to production
         run: |
           echo "Deploy frontend to production VPS"
-          # Automated deployment via Docker with secrets:
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd frontend && docker-compose down && docker-compose up -d --build"
+          # Automated deployment via Docker with password authentication:
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd frontend && docker-compose down && docker-compose up -d --build"
           
   deploy-staging:
     if: github.ref == 'refs/heads/develop'
