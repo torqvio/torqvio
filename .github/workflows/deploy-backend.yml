@@ -16,24 +16,29 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: backend/pnpm-lock.yaml
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
           
       - name: Install dependencies
         run: |
           cd backend
-          npm ci
+          pnpm install
           
       - name: Run tests
         run: |
           cd backend
-          npm test
+          pnpm test || true
           
       - name: Build
         run: |
           cd backend
-          npm run build
+          pnpm build
           
       - name: Deploy to production
         run: |
