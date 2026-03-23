@@ -6,9 +6,9 @@
 
 <p align="center"><strong>Never lose a workflow again.</strong></p>
 
-Serverless crons. Serverless webhooks. Serverless workflows. All durable. All observable. All running on your own infrastructure.
+Serverless crons. Serverless webhooks. Serverless workflows. All durable. All observable. All running on our managed cloud infrastructure.
 
-Open source. Self-hosted. No credit card required.
+Open source core. Managed SaaS. No credit card required.
 
 ---
 
@@ -41,18 +41,20 @@ Torqvio makes all three durable. They survive crashes, retries on failure, resum
 ## Run it
 
 ```bash
-git clone https://github.com/YOUR_ORG/torqvio.git
-cd torqvio
+# Sign up for free
+npm create torqvio@latest my-workflow
+cd my-workflow
 
-cp backend/.env.example backend/.env
-# fill in .env
+# Configure with your API key
+echo "TORQVIO_API_KEY=your_key_here" > .env
 
-docker compose -f docker/docker-compose.yml up -d
+# Deploy to Torqvio Cloud
+torqvio deploy
 ```
 
-Dashboard: `http://localhost:7243`
-API: `http://localhost:8459`
-Docs: `http://localhost:7243/docs`
+Dashboard: `https://app.torqvio.com`
+API: `https://api.torqvio.com`
+Docs: `https://docs.torqvio.com`
 
 ---
 
@@ -60,23 +62,23 @@ Docs: `http://localhost:7243/docs`
 
 ```bash
 # Create a workflow
-curl -X POST http://localhost:8459/api/v1/flows \
+curl -X POST https://api.torqvio.com/api/v1/flows \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
   -d '{ "name": "my-workflow", "steps": [...] }'
 
 # Trigger an execution
-curl -X POST http://localhost:8459/api/workflows/execute \
+curl -X POST https://api.torqvio.com/api/workflows/execute \
   -H "Authorization: Bearer your-api-key" \
   -d '{ "workflowId": "my-workflow", "input": { "userId": "123" } }'
 
 # Register a webhook
-curl -X POST http://localhost:8459/api/v1/webhooks \
+curl -X POST https://api.torqvio.com/api/v1/webhooks \
   -H "Authorization: Bearer your-api-key" \
   -d '{ "url": "https://yourapp.com/hook", "events": ["workflow.completed"] }'
 
 # List executions
-curl http://localhost:8459/api/v1/executions \
+curl https://api.torqvio.com/api/v1/executions \
   -H "Authorization: Bearer your-api-key"
 ```
 
@@ -99,21 +101,23 @@ No credit card to start. SOC 2 compliant. 99.9% uptime SLA on Pro and Enterprise
 
 ---
 
-## Self-host it
-
-One script sets up the entire VPS — Docker, Nginx, SSL, repos cloned, firewall, log rotation.
+## Get Started
 
 ```bash
-bash scripts/setup-vps.sh
+# Create your free account
+curl -X POST https://api.torqvio.com/signup \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "your@email.com", "password": "secure-password" }'
+
+# Get your API key
+curl -X POST https://api.torqvio.com/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "your@email.com", "password": "secure-password" }'
 ```
 
-Push to `main`, it deploys automatically via GitHub Actions. Three secrets needed:
-
-| Secret | What it is |
-|---|---|
-| `VPS_HOST` | VPS IP |
-| `VPS_USER` | SSH username |
-| `VPS_SSH_KEY` | Private SSH key |
+Dashboard: `https://app.torqvio.com`
+API: `https://api.torqvio.com`
+Docs: `https://docs.torqvio.com`
 
 ---
 
@@ -124,9 +128,7 @@ Node.js 18, Express 5, TypeScript, PostgreSQL 15, Redis 7, Next.js 16, Socket.IO
 ```
 backend/    API, execution engine, scheduler, webhook processor, auth
 frontend/   Dashboard, live execution tracking, workflow builder
-docker/     Local dev and production compose files
-nginx/      Reverse proxy, SSL, rate limiting, WebSocket support
-scripts/    VPS provisioning
+infrastructure/ Cloud deployment, monitoring, scaling
 packages/   TypeScript, Python, Go client SDKs
 ```
 
