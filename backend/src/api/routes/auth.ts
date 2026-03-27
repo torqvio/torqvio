@@ -577,6 +577,15 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       
       logger.info('Password reset successful', { userId });
       
+      // Send success confirmation email
+      const userResult = await db.query('SELECT email, name FROM users WHERE id = $1', [userId]);
+      if ((userResult as any).rows.length > 0) {
+        const user = (userResult as any).rows[0];
+        emailService.sendPasswordResetSuccess(user.email, user.name).catch(err =>
+          logger.error('Failed to send password reset success email:', err)
+        );
+      }
+      
       res.json({ message: 'Password reset successful' });
     } catch (error) {
       await db.query('ROLLBACK');

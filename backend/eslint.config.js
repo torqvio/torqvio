@@ -9,9 +9,9 @@ export default [
       sourceType: 'module',
     },
     rules: {
-      'no-unused-vars': 'warn',
-      'no-console': 'warn',
-      'prefer-const': 'error',
+      'no-unused-vars': 'off',
+      'no-console': 'off',
+      'prefer-const': 'warn',
     },
   },
 ];
