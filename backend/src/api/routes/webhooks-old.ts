@@ -6,7 +6,7 @@ import { WebhookTrigger } from '../../triggers/WebhookTrigger.js';
 import { EventBus } from '../../events/EventBus.js';
 import { TriggerModel, FlowModel } from '../../database/models.js';
 
-const router = Router();
+const router: Router = Router();
 
 // GET /api/v1/webhooks - List all webhooks
 router.get('/', async (req: Request, res: Response) => {

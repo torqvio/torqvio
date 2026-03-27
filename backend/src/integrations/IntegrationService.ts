@@ -61,7 +61,7 @@ export class IntegrationService {
     }
 
     // Validate credentials
-    const isValid = await connector.validateCredentials(integrationConfig.config);
+    const isValid = await connector.validateCredentials(integrationConfig.config as any);
     if (!isValid) {
       throw new Error('Invalid integration credentials');
     }
@@ -70,9 +70,10 @@ export class IntegrationService {
     let webhookConfig: WebhookConfig | null = null;
     if (integrationConfig.webhookUrl) {
       webhookConfig = await connector.setupWebhooks({
+        type: integrationConfig.type,
         ...integrationConfig.config,
         webhookUrl: integrationConfig.webhookUrl
-      });
+      } as any);
     }
 
     // Create integration record

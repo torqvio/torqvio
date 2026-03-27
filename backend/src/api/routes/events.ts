@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { EventBus } from '../events/EventBus.js';
-import { EventProcessor } from '../events/EventProcessor.js';
-import { Event, EventSubscription } from '../types/index.js';
+import { EventBus } from '../../events/EventBus.js';
+import { EventProcessor } from '../../events/EventProcessor.js';
+import { Event, EventSubscription } from '../../types/index.js';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * POST /events

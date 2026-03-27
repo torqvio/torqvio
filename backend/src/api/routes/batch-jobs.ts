@@ -4,7 +4,7 @@ import { authenticateApiKey, AuthenticatedRequest } from '../../utils/auth.js';
 import { BatchJobService } from '../../services/BatchJobService.js';
 import { logger } from '../../utils/logger.js';
 
-const router = Router();
+const router: Router = Router();
 
 // All batch-job routes require API key auth
 router.use(authenticateApiKey);
@@ -82,7 +82,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const projectId = req.projectId!;
 
     const service = getService();
-    const job = await service.get(id, projectId);
+    const job = await service.get(id as string, projectId);
 
     if (!job) {
       return res.status(404).json({ error: 'Batch job not found', message: `No batch job with id ${id}` });
@@ -112,7 +112,7 @@ router.get('/:id/items', async (req: AuthenticatedRequest, res: Response) => {
     const offset = (pageNum - 1) * limitNum;
 
     const service = getService();
-    const items = await service.getItems(id, projectId, status, limitNum, offset);
+    const items = await service.getItems(id as string, projectId, status, limitNum, offset);
 
     return res.json({
       data: items,
@@ -127,8 +127,9 @@ router.get('/:id/items', async (req: AuthenticatedRequest, res: Response) => {
 // ─── POST /api/v1/batch-jobs/:id/pause ───────────────────────────────────────
 router.post('/:id/pause', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const { id } = req.params;
     const service = getService();
-    const job = await service.pause(req.params.id, req.projectId!);
+    const job = await service.pause(id as string, req.projectId!);
     return res.json({ message: 'Batch job paused', job });
   } catch (err: any) {
     const status = err.message.includes('not found') ? 404
@@ -140,8 +141,9 @@ router.post('/:id/pause', async (req: AuthenticatedRequest, res: Response) => {
 // ─── POST /api/v1/batch-jobs/:id/resume ──────────────────────────────────────
 router.post('/:id/resume', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const { id } = req.params;
     const service = getService();
-    const job = await service.resume(req.params.id, req.projectId!);
+    const job = await service.resume(id as string, req.projectId!);
     return res.json({ message: 'Batch job resumed', job });
   } catch (err: any) {
     const status = err.message.includes('not found') ? 404
@@ -153,8 +155,9 @@ router.post('/:id/resume', async (req: AuthenticatedRequest, res: Response) => {
 // ─── POST /api/v1/batch-jobs/:id/cancel ──────────────────────────────────────
 router.post('/:id/cancel', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const { id } = req.params;
     const service = getService();
-    const job = await service.cancel(req.params.id, req.projectId!);
+    const job = await service.cancel(id as string, req.projectId!);
     return res.json({ message: 'Batch job cancelled', job });
   } catch (err: any) {
     const status = err.message.includes('not found') ? 404
@@ -166,9 +169,10 @@ router.post('/:id/cancel', async (req: AuthenticatedRequest, res: Response) => {
 // ─── POST /api/v1/batch-jobs/:id/retry ───────────────────────────────────────
 router.post('/:id/retry', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const { id } = req.params;
     const { failed_only = true } = req.body;
     const service = getService();
-    const result = await service.retryFailed(req.params.id, req.projectId!, Boolean(failed_only));
+    const result = await service.retryFailed(id as string, req.projectId!, Boolean(failed_only));
     return res.json({ message: 'Retry triggered', ...result });
   } catch (err: any) {
     const status = err.message.includes('not found') ? 404

@@ -3,7 +3,7 @@ import { workflow } from '../../../packages/core/dist/index.js';
 import { createDatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

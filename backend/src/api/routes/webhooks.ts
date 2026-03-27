@@ -3,6 +3,7 @@ import { getWebhookDbConnection } from '../../database/webhook-connection.js';
 import { logger } from '../../utils/logger.js';
 import crypto from 'crypto';
 import { z } from 'zod';
+import { apiAuthMiddleware } from '../../middleware/apiAuth.js';
 
 const router = Router() as Router;
 
@@ -27,22 +28,22 @@ function generateWebhookId(): string {
 }
 
 // GET /api/v1/webhooks - List all webhooks
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { limit = 100, offset = 0 } = req.query;
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
-    // Get total count first
-    const countResult = await db.query('SELECT COUNT(*) as total FROM webhooks');
+
+    const countResult = await db.query('SELECT COUNT(*) as total FROM webhooks WHERE project_id = $1', [projectId]);
     const total = parseInt(countResult[0]?.total || '0');
-    
-    // Query webhooks with pagination
+
     const webhooks = await db.query(`
-      SELECT id, url, secret, active, created_at, updated_at
-      FROM webhooks 
+      SELECT id, url, active, created_at, updated_at
+      FROM webhooks
+      WHERE project_id = $1
       ORDER BY created_at DESC
-      LIMIT $1 OFFSET $2
-    `, [Math.min(Number(limit), 1000), Number(offset)]);
+      LIMIT $2 OFFSET $3
+    `, [projectId, Math.min(Number(limit), 1000), Number(offset)]);
     
     // Transform to match documented format
     const transformedWebhooks = webhooks.map((webhook: any) => ({
@@ -73,32 +74,29 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/v1/webhooks - Create a new webhook (ULTRA OPTIMIZED)
-router.post('/', async (req: Request, res: Response) => {
+// POST /api/v1/webhooks - Create a new webhook
+router.post('/', apiAuthMiddleware, async (req: Request, res: Response) => {
   const startTime = Date.now();
-  
+
   try {
-    // Minimal validation - fastest path
     const { url, events = ['workflow.started'], secret, active = true } = req.body;
-    
+    const projectId = (req as any).projectId;
+
     if (!url || typeof url !== 'string') {
       return res.status(400).json({
         error: 'Validation failed',
         message: 'URL is required'
       });
     }
-    
-    // Fast ID generation
+
     const webhookId = crypto.randomUUID();
     const webhookSecret = secret || crypto.randomBytes(8).toString('hex');
-    
-    // Optimized database connection
+
     const db = getWebhookDbConnection();
-    
-    // Simplified query for maximum speed
+
     const result = await db.query(
-      'INSERT INTO webhooks (id, url, secret, active, trigger_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, url, active, created_at, updated_at',
-      [webhookId, url, webhookSecret, active, JSON.stringify(events)]
+      'INSERT INTO webhooks (id, url, secret, active, trigger_id, project_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, url, active, created_at, updated_at',
+      [webhookId, url, webhookSecret, active, JSON.stringify(events), projectId]
     );
     
     const webhook = result[0];
@@ -129,12 +127,13 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/webhooks/stats - Get webhook statistics
-router.get('/stats', async (req: Request, res: Response) => {
+router.get('/stats', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
+
     const stats = await db.query(`
-      SELECT 
+      SELECT
         COUNT(*) as total_webhooks,
         COUNT(CASE WHEN active = true THEN 1 END) as active_webhooks,
         COUNT(CASE WHEN active = false THEN 1 END) as inactive_webhooks,
@@ -142,10 +141,11 @@ router.get('/stats', async (req: Request, res: Response) => {
         COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END) as created_last_7d,
         COUNT(CASE WHEN url LIKE '%webhook.site%' OR url LIKE '%test%' THEN 1 END) as test_webhooks
       FROM webhooks
-    `);
-    
+      WHERE project_id = $1
+    `, [projectId]);
+
     const result = stats[0];
-    
+
     res.json({
       total_webhooks: parseInt(result?.total_webhooks || '0'),
       active_webhooks: parseInt(result?.active_webhooks || '0'),
@@ -164,58 +164,57 @@ router.get('/stats', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/v1/webhooks/bulk - Bulk delete webhooks (for cleanup)
-router.delete('/bulk', async (req: Request, res: Response) => {
+// DELETE /api/v1/webhooks/bulk - Bulk delete webhooks
+router.delete('/bulk', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { webhook_ids, url_pattern, created_before, older_than_hours } = req.body;
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
+
     let deletedCount = 0;
-    
+
     if (webhook_ids && Array.isArray(webhook_ids)) {
-      // Delete specific webhook IDs
       const result = await db.query(
-        `DELETE FROM webhooks WHERE id = ANY($1) RETURNING COUNT(*) as count`,
-        [webhook_ids]
+        `DELETE FROM webhooks WHERE id = ANY($1) AND project_id = $2 RETURNING id`,
+        [webhook_ids, projectId]
       );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
+      deletedCount = result.length;
+
     } else if (url_pattern) {
-      // Delete webhooks matching URL pattern
       const result = await db.query(
-        `DELETE FROM webhooks WHERE url ILIKE $1 RETURNING COUNT(*) as count`,
-        [`%${url_pattern}%`]
+        `DELETE FROM webhooks WHERE url ILIKE $1 AND project_id = $2 RETURNING id`,
+        [`%${url_pattern}%`, projectId]
       );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
+      deletedCount = result.length;
+
     } else if (created_before) {
-      // Delete webhooks created before a specific date
       const result = await db.query(
-        `DELETE FROM webhooks WHERE created_at < $1 RETURNING COUNT(*) as count`,
-        [created_before]
+        `DELETE FROM webhooks WHERE created_at < $1 AND project_id = $2 RETURNING id`,
+        [created_before, projectId]
       );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
+      deletedCount = result.length;
+
     } else if (older_than_hours) {
-      // Delete webhooks older than X hours (auto-cleanup)
+      // Validate older_than_hours is a positive integer to prevent injection
+      const hours = parseInt(String(older_than_hours), 10);
+      if (isNaN(hours) || hours <= 0) {
+        return res.status(400).json({ error: 'Invalid request', message: 'older_than_hours must be a positive integer' });
+      }
       const result = await db.query(
-        `DELETE FROM webhooks WHERE created_at < NOW() - INTERVAL '${older_than_hours} hours' RETURNING COUNT(*) as count`
+        `DELETE FROM webhooks WHERE created_at < NOW() - ($1 * INTERVAL '1 hour') AND project_id = $2 RETURNING id`,
+        [hours, projectId]
       );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
+      deletedCount = result.length;
+
     } else {
       return res.status(400).json({
         error: 'Invalid request',
         message: 'Provide webhook_ids, url_pattern, created_before, or older_than_hours'
       });
     }
-    
-    logger.warn(`Bulk deleted ${deletedCount} webhooks`, {
-      deletedCount,
-      reason: req.body,
-      timestamp: new Date().toISOString()
-    });
-    
+
+    logger.warn(`Bulk deleted ${deletedCount} webhooks`, { deletedCount, projectId });
+
     res.json({
       message: 'Bulk delete completed',
       deleted_count: deletedCount,
@@ -231,16 +230,17 @@ router.delete('/bulk', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/webhooks/:id - Get a specific webhook
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
+
     const result = await db.query(`
-      SELECT id, url, secret, active, created_at, updated_at, trigger_id
-      FROM webhooks 
-      WHERE id = $1
-    `, [String(id)]);
+      SELECT id, url, active, created_at, updated_at, trigger_id
+      FROM webhooks
+      WHERE id = $1 AND project_id = $2
+    `, [String(id), projectId]);
     
     if (result.length === 0) {
       return res.status(404).json({
@@ -280,26 +280,26 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/v1/webhooks/:id - Update a webhook
-router.patch('/:id', async (req: Request, res: Response) => {
+router.patch('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const validatedData = updateWebhookSchema.parse(req.body);
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
-    // Check if webhook exists
-    const existing = await db.query('SELECT id FROM webhooks WHERE id = $1', [String(id)]);
+
+    const existing = await db.query('SELECT id FROM webhooks WHERE id = $1 AND project_id = $2', [String(id), projectId]);
     if (existing.length === 0) {
       return res.status(404).json({
         error: 'Webhook not found',
         message: `Webhook with id ${id} not found`
       });
     }
-    
+
     // Build update query
     const fields = [];
     const values = [];
     let paramIndex = 1;
-    
+
     if (validatedData.url) {
       fields.push(`url = $${paramIndex++}`);
       values.push(validatedData.url);
@@ -316,20 +316,21 @@ router.patch('/:id', async (req: Request, res: Response) => {
       fields.push(`trigger_id = $${paramIndex++}`);
       values.push(JSON.stringify(validatedData.events));
     }
-    
+
     if (fields.length === 0) {
       return res.status(400).json({
         error: 'No valid fields to update',
         message: 'At least one field must be provided for update'
       });
     }
-    
+
     values.push(String(id));
-    
+    values.push(projectId);
+
     const result = await db.query(`
-      UPDATE webhooks 
+      UPDATE webhooks
       SET ${fields.join(', ')}, updated_at = NOW()
-      WHERE id = $${paramIndex}
+      WHERE id = $${paramIndex} AND project_id = $${paramIndex + 1}
       RETURNING id, url, active, created_at, updated_at, trigger_id
     `, values);
     
@@ -379,22 +380,21 @@ router.patch('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/v1/webhooks/:id - Delete a webhook
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
-    // Check if webhook exists
-    const existing = await db.query('SELECT id FROM webhooks WHERE id = $1', [String(id)]);
+
+    const existing = await db.query('SELECT id FROM webhooks WHERE id = $1 AND project_id = $2', [String(id), projectId]);
     if (existing.length === 0) {
       return res.status(404).json({
         error: 'Webhook not found',
         message: `Webhook with id ${id} not found`
       });
     }
-    
-    // Delete webhook
-    await db.query('DELETE FROM webhooks WHERE id = $1', [String(id)]);
+
+    await db.query('DELETE FROM webhooks WHERE id = $1 AND project_id = $2', [String(id), projectId]);
     
     logger.info(`Webhook deleted: ${id}`, { webhookId: id });
     
@@ -411,19 +411,19 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/webhooks/:id/events - List webhook events (for debugging/monitoring)
-router.get('/:id/events', async (req: Request, res: Response) => {
+router.get('/:id/events', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { limit = 50, offset = 0 } = req.query;
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
+
     const webhook = await db.query(`
       SELECT id, url, active, trigger_id,
              COALESCE(last_triggered_at::text, NULL) as last_triggered_at,
              COALESCE(retry_count, 0) as retry_count
-      FROM webhooks 
-      WHERE id = $1
-    `, [String(id)]);
+      FROM webhooks
+      WHERE id = $1 AND project_id = $2
+    `, [String(id), projectId]);
     
     if (webhook.length === 0) {
       return res.status(404).json({
@@ -465,16 +465,17 @@ router.get('/:id/events', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/webhooks/:id/test - Test webhook delivery
-router.post('/:id/test', async (req: Request, res: Response) => {
+router.post('/:id/test', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = getWebhookDbConnection();
-    
+
     const webhook = await db.query(`
       SELECT id, url, secret, active, trigger_id
-      FROM webhooks 
-      WHERE id = $1
-    `, [String(id)]);
+      FROM webhooks
+      WHERE id = $1 AND project_id = $2
+    `, [String(id), projectId]);
     
     if (webhook.length === 0) {
       return res.status(404).json({
@@ -549,108 +550,6 @@ router.post('/:id/test', async (req: Request, res: Response) => {
     logger.error('Failed to test webhook:', error);
     res.status(500).json({
       error: 'Failed to test webhook',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-// DELETE /api/v1/webhooks/bulk - Bulk delete webhooks (for cleanup)
-router.delete('/bulk', async (req: Request, res: Response) => {
-  try {
-    const { webhook_ids, url_pattern, created_before, older_than_hours } = req.body;
-    const db = getWebhookDbConnection();
-    
-    let deletedCount = 0;
-    
-    if (webhook_ids && Array.isArray(webhook_ids)) {
-      // Delete specific webhook IDs
-      const result = await db.query(
-        `DELETE FROM webhooks WHERE id = ANY($1) RETURNING COUNT(*) as count`,
-        [webhook_ids]
-      );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
-    } else if (url_pattern) {
-      // Delete webhooks matching URL pattern
-      const result = await db.query(
-        `DELETE FROM webhooks WHERE url ILIKE $1 RETURNING COUNT(*) as count`,
-        [`%${url_pattern}%`]
-      );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
-    } else if (created_before) {
-      // Delete webhooks created before a specific date
-      const result = await db.query(
-        `DELETE FROM webhooks WHERE created_at < $1 RETURNING COUNT(*) as count`,
-        [created_before]
-      );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
-    } else if (older_than_hours) {
-      // Delete webhooks older than X hours (auto-cleanup)
-      const result = await db.query(
-        `DELETE FROM webhooks WHERE created_at < NOW() - INTERVAL '${older_than_hours} hours' RETURNING COUNT(*) as count`
-      );
-      deletedCount = parseInt(result[0]?.count || '0');
-      
-    } else {
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'Provide webhook_ids, url_pattern, created_before, or older_than_hours'
-      });
-    }
-    
-    logger.warn(`Bulk deleted ${deletedCount} webhooks`, {
-      deletedCount,
-      reason: req.body,
-      timestamp: new Date().toISOString()
-    });
-    
-    res.json({
-      message: 'Bulk delete completed',
-      deleted_count: deletedCount,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    logger.error('Failed to bulk delete webhooks:', error);
-    res.status(500).json({
-      error: 'Failed to bulk delete webhooks',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-});
-
-// GET /api/v1/webhooks/stats - Get webhook statistics
-router.get('/stats', async (req: Request, res: Response) => {
-  try {
-    const db = getWebhookDbConnection();
-    
-    const stats = await db.query(`
-      SELECT 
-        COUNT(*) as total_webhooks,
-        COUNT(CASE WHEN active = true THEN 1 END) as active_webhooks,
-        COUNT(CASE WHEN active = false THEN 1 END) as inactive_webhooks,
-        COUNT(CASE WHEN created_at > NOW() - INTERVAL '24 hours' THEN 1 END) as created_last_24h,
-        COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END) as created_last_7d,
-        COUNT(CASE WHEN url LIKE '%webhook.site%' OR url LIKE '%test%' THEN 1 END) as test_webhooks
-      FROM webhooks
-    `);
-    
-    const result = stats[0];
-    
-    res.json({
-      total_webhooks: parseInt(result?.total_webhooks || '0'),
-      active_webhooks: parseInt(result?.active_webhooks || '0'),
-      inactive_webhooks: parseInt(result?.inactive_webhooks || '0'),
-      created_last_24h: parseInt(result?.created_last_24h || '0'),
-      created_last_7d: parseInt(result?.created_last_7d || '0'),
-      test_webhooks: parseInt(result?.test_webhooks || '0'),
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    logger.error('Failed to get webhook stats:', error);
-    res.status(500).json({
-      error: 'Failed to get webhook stats',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }

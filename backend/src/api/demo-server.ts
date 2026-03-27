@@ -2,9 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 
-export function createDemoApiServer() {
+interface DemoServerResult {
+  app: express.Express;
+  PORT: number;
+}
+
+export function createDemoApiServer(): DemoServerResult {
   const app = express();
-  const PORT = process.env.API_PORT || 3000;
+  const PORT = Number(process.env.API_PORT) || 3000;
 
   // Middleware
   app.use(helmet());

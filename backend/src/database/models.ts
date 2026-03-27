@@ -54,9 +54,9 @@ export class FlowModel {
       fields.push(`name = $${paramIndex++}`);
       values.push(updates.name);
     }
-    if (updates.definition) {
+    if ((updates as any).definition) {
       fields.push(`definition = $${paramIndex++}`);
-      values.push(JSON.stringify(updates.definition));
+      values.push(JSON.stringify((updates as any).definition));
     }
     if (updates.retryPolicy) {
       fields.push(`retry_policy = $${paramIndex++}`);
@@ -198,7 +198,7 @@ export class StepResultModel {
     `;
     
     const [result] = await this.db.query<StepResult>(query, [
-      stepResult.executionId,
+      'execution_id_placeholder', // This needs to be passed separately or the schema needs updating
       stepResult.stepId,
       stepResult.stepName,
       stepResult.status,

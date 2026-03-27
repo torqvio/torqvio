@@ -191,7 +191,7 @@ export class BatchJobService {
         ? 'failed'
         : 'completed';
       await this.model.updateStatus(batchJobId, finalStatus, { completed_at: new Date() });
-      logger.info('Batch job finished', { batchJobId, status: finalStatus, ...final });
+      logger.info('Batch job finished', { batchJobId, status: finalStatus, completed: final.completed_items, failed: final.failed_items, skipped: final.skipped_items });
     }
   }
 

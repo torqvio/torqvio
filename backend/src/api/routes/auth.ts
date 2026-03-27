@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { scrypt, randomBytes, timingSafeEqual } from 'crypto';
+import { scrypt, randomBytes, timingSafeEqual, createHash } from 'crypto';
 import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseConnection } from '../../database/connection.js';
 import { generateToken, authenticateToken, AuthenticatedRequest, refreshToken, checkAuthRateLimit } from '../../utils/auth.js';
 import { logger } from '../../utils/logger.js';
+import { emailService } from '../../services/EmailService.js';
 
-const router = Router();
+const router: Router = Router();
+const db = DatabaseConnection.getInstance();
 const scryptAsync = promisify(scrypt);
 
 // OAuth configuration (these should be environment variables in production)
@@ -131,6 +133,11 @@ router.post('/register', async (req: Request, res: Response) => {
     const token = generateToken({ userId: user.id, email: user.email, role: user.role as 'admin' | 'user' | 'viewer' });
 
     logger.info('User registered', { userId: user.id, email: user.email });
+
+    // Fire-and-forget welcome email — don't block the response
+    emailService.sendWelcome(user.email, user.name).catch(err =>
+      logger.error('Failed to send welcome email:', err)
+    );
 
     res.status(201).json({
       token,
@@ -474,5 +481,111 @@ router.get('/google/callback', async (req: Request, res: Response) => {
 
 // POST /api/v1/auth/refresh
 router.post('/refresh', refreshToken);
+
+// POST /api/v1/auth/forgot-password
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const userResult = await db.query(
+      'SELECT id, name FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
+    if ((userResult as any).rows.length === 0) {
+      // Always return success to prevent email enumeration
+      return res.json({ message: 'If an account exists, a reset link has been sent' });
+    }
+
+    const user = (userResult as any).rows[0];
+    
+    // Generate secure random token
+    const token = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    
+    // Store token (1 hour expiry)
+    await db.query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
+      [user.id, tokenHash]
+    );
+
+    // Send email
+    await emailService.sendPasswordReset(email, token, user.name);
+    
+    logger.info('Password reset email sent', { userId: user.id, email });
+    
+    res.json({ message: 'If an account exists, a reset link has been sent' });
+  } catch (error: any) {
+    logger.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/v1/auth/reset-password
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+    
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    
+    // Find valid token
+    const tokenResult = await db.query(
+      `SELECT user_id FROM password_reset_tokens 
+       WHERE token_hash = $1 AND expires_at > NOW() AND used_at IS NULL`,
+      [tokenHash]
+    );
+
+    if ((tokenResult as any).rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    const userId = (tokenResult as any).rows[0].user_id;
+    
+    // Hash new password using scrypt
+    const salt = randomBytes(16).toString('hex');
+    const hashedPassword = (await scryptAsync(newPassword, salt, 64)) as Buffer;
+    const hashedPasswordHex = hashedPassword.toString('hex');
+    
+    // Update password and mark token as used
+    await db.query('BEGIN');
+    
+    try {
+      await db.query(
+        'UPDATE users SET password_hash = $1 WHERE id = $2',
+        [hashedPassword, userId]
+      );
+      
+      await db.query(
+        'UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = $1',
+        [tokenHash]
+      );
+      
+      await db.query('COMMIT');
+      
+      logger.info('Password reset successful', { userId });
+      
+      res.json({ message: 'Password reset successful' });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+  } catch (error: any) {
+    logger.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 export default router;

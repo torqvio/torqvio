@@ -54,7 +54,7 @@ export class RecoveryAnalyticsModel {
     ]);
     
     // Update daily analytics
-    await this.updateDailyAnalytics(event.projectId, event.date || new Date().toISOString().split('T')[0]);
+    await this.updateDailyAnalytics(event.projectId, (event as any).date || new Date().toISOString().split('T')[0]);
     
     return result;
   }

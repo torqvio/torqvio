@@ -7,7 +7,7 @@ export class StripeConnector implements IntegrationConnector {
 
   constructor(config: StripeConfig) {
     this.stripe = new Stripe(config.secretKey, {
-      apiVersion: config.apiVersion || '2023-10-16'
+      apiVersion: (config.apiVersion || '2023-10-16') as any
     });
   }
 
@@ -36,7 +36,7 @@ export class StripeConnector implements IntegrationConnector {
 
       return {
         endpointId: webhookEndpoint.id,
-        secret: webhookEndpoint.secret,
+        secret: webhookEndpoint.secret || '',
         url: config.webhookUrl
       };
     } catch (error) {

@@ -1,33 +1,35 @@
 import { Router, Request, Response } from 'express';
 import { createDatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
+import { apiAuthMiddleware } from '../../middleware/apiAuth.js';
 
-const router = Router();
+const router: Router = Router();
 
 // GET /api/v1/executions - List all executions
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { flow_id, status, limit = 50, offset = 0 } = req.query;
-    
+    const projectId = (req as any).projectId;
+
     let query = `
-      SELECT fe.*, f.name as flow_name 
-      FROM flow_executions fe 
+      SELECT fe.*, f.name as flow_name
+      FROM flow_executions fe
       JOIN flows f ON fe.flow_id = f.id
-      WHERE 1=1
+      WHERE f.project_id = $1
     `;
-    const params: any[] = [];
-    let paramIndex = 1;
-    
+    const params: any[] = [projectId];
+    let paramIndex = 2;
+
     if (flow_id) {
       query += ` AND fe.flow_id = $${paramIndex++}`;
       params.push(flow_id);
     }
-    
+
     if (status) {
       query += ` AND fe.status = $${paramIndex++}`;
       params.push(status);
     }
-    
+
     query += ` ORDER BY fe.created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
     params.push(Number(limit), Number(offset));
     
@@ -50,20 +52,21 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/executions/:id - Get a specific execution
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
-    
+
     const result = await db.query(
-      `SELECT fe.*, f.name as flow_name, f.definition 
-       FROM flow_executions fe 
-       JOIN flows f ON fe.flow_id = f.id 
-       WHERE fe.id = $1`,
-      [id]
+      `SELECT fe.*, f.name as flow_name, f.definition
+       FROM flow_executions fe
+       JOIN flows f ON fe.flow_id = f.id
+       WHERE fe.id = $1 AND f.project_id = $2`,
+      [id, projectId]
     );
     
-    if (result.rows.length === 0) {
+    if ((result as any).rows?.length === 0) {
       return res.status(404).json({
         error: 'Execution not found',
         message: `Execution with id ${id} not found`
@@ -92,14 +95,18 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/executions/:id/status - Get execution status
-router.get('/:id/status', async (req: Request, res: Response) => {
+router.get('/:id/status', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
-    
+
     const result = await db.query(
-      'SELECT status, current_step, error_message, created_at, updated_at FROM flow_executions WHERE id = $1',
-      [id]
+      `SELECT fe.status, fe.current_step_id, fe.created_at, fe.updated_at
+       FROM flow_executions fe
+       JOIN flows f ON fe.flow_id = f.id
+       WHERE fe.id = $1 AND f.project_id = $2`,
+      [id, projectId]
     );
     
     if (result.length === 0) {
@@ -120,10 +127,22 @@ router.get('/:id/status', async (req: Request, res: Response) => {
 });
 
 // GET /api/v1/executions/:id/logs - Get execution logs
-router.get('/:id/logs', async (req: Request, res: Response) => {
+router.get('/:id/logs', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
+
+    // Verify this execution belongs to the project before returning logs
+    const ownership = await db.query(
+      `SELECT fe.id FROM flow_executions fe
+       JOIN flows f ON fe.flow_id = f.id
+       WHERE fe.id = $1 AND f.project_id = $2`,
+      [id, projectId]
+    );
+    if (ownership.length === 0) {
+      return res.status(404).json({ error: 'Execution not found', message: `No logs found for execution ${id}` });
+    }
     
     // Get step results which act as logs
     const result = await db.query(
@@ -158,15 +177,18 @@ router.get('/:id/logs', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/executions/:id/cancel - Cancel an execution
-router.post('/:id/cancel', async (req: Request, res: Response) => {
+router.post('/:id/cancel', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
-    
-    // Check if execution exists and is cancellable
+
+    // Check if execution exists, is cancellable, and belongs to this project
     const existing = await db.query(
-      'SELECT status FROM flow_executions WHERE id = $1',
-      [id]
+      `SELECT fe.status FROM flow_executions fe
+       JOIN flows f ON fe.flow_id = f.id
+       WHERE fe.id = $1 AND f.project_id = $2`,
+      [id, projectId]
     );
     
     if (existing.length === 0) {
@@ -208,15 +230,18 @@ router.post('/:id/cancel', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/executions/:id/retry - Retry a failed execution
-router.post('/:id/retry', async (req: Request, res: Response) => {
+router.post('/:id/retry', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
-    
-    // Check if execution exists and is retryable
+
+    // Check if execution exists, is retryable, and belongs to this project
     const existing = await db.query(
-      'SELECT status, flow_id, payload FROM flow_executions WHERE id = $1',
-      [id]
+      `SELECT fe.status, fe.flow_id, fe.payload FROM flow_executions fe
+       JOIN flows f ON fe.flow_id = f.id
+       WHERE fe.id = $1 AND f.project_id = $2`,
+      [id, projectId]
     );
     
     if (existing.length === 0) {

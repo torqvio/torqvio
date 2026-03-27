@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { createDatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
 
-const router = Router();
+const router: Router = Router();
 
 // GET /executions - List all executions (matching documented API)
 router.get('/', async (req: Request, res: Response) => {

@@ -3,7 +3,7 @@ import { createDatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
 import { apiAuthMiddleware } from '../../middleware/apiAuth.js';
 
-const router = Router();
+const router: Router = Router();
 
 // GET /workflows - List all workflows (matching documented API)
 router.get('/', apiAuthMiddleware, async (req: Request, res: Response) => {

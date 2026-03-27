@@ -1,8 +1,8 @@
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import cors from 'cors';
-import { Router, Request, Response } from 'express';
 import helmet from 'helmet';
+import { Router, Request, Response } from 'express';
 import { createDatabaseConnection } from '../database/connection.js';
 import { EventBus } from '../events/EventBus.js';
 import { ExecutionEngine } from '../engine/ExecutionEngine.js';
@@ -31,10 +31,17 @@ import { logger } from '../utils/logger.js';
 import { requestIdMiddleware, errorHandler } from '../utils/errorHandler.js';
 import { swaggerSpec, swaggerUi } from './swagger.js';
 
-export function createApiServer() {
+interface ApiServerResult {
+  app: express.Express;
+  httpServer: any;
+  PORT: number;
+  eventBroadcaster: EventBroadcaster;
+}
+
+export function createApiServer(): ApiServerResult {
   const app = express();
   const httpServer = createHttpServer(app);
-  const PORT = process.env.API_PORT || 8913;
+  const PORT = Number(process.env.API_PORT) || 8913;
   const db = createDatabaseConnection();
   
   // Initialize Trust Machine components

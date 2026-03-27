@@ -3,26 +3,13 @@ import { RBACService } from './RBACService';
 import { AuditService } from './AuditService';
 import { createDatabaseConnection } from '../database/connection';
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        email: string;
-        role: string;
-        tenantId: string;
-      };
-    }
-  }
-}
-
 const rbacService = new RBACService();
 const db = createDatabaseConnection();
 
 export const rbacMiddleware = (requiredPermission: string) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const tenantId = req.headers['x-tenant-id'] as string | undefined;
       
       if (!userId || !tenantId) {
@@ -34,9 +21,9 @@ export const rbacMiddleware = (requiredPermission: string) => {
       await setTenantContext(tenantId, userId);
       
       const hasPermission = await rbacService.checkPermission(
-        userId, 
+        userId,
         requiredPermission,
-        req.params.id
+        req.params.id as string
       );
 
       if (!hasPermission) {

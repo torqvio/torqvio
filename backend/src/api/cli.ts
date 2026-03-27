@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import chalk from 'chalk';
 
-const router = Router();
+const router: Router = Router();
 
 // Authentication schemas
 const loginSchema = z.object({

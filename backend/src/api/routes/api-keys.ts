@@ -4,7 +4,7 @@ import { authenticateToken, AuthenticatedRequest } from '../../utils/auth.js';
 import { DatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
 
-const router = Router();
+const router: Router = Router();
 
 function generateApiKey(): { raw: string; hash: string; prefix: string } {
   const raw = 'ak_' + randomBytes(20).toString('hex');

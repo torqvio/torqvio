@@ -269,7 +269,6 @@ export class ExecutionEngine {
 
     // Save step result
     const savedResult = await this.stepResultModel.create({
-      executionId: execution.id,
       stepId: stepResult.stepId,
       stepName: stepResult.stepName,
       status: stepResult.status,

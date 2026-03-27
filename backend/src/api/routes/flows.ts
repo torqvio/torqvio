@@ -1,6 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { flow } from '../../engine/FlowBuilder.js';
-import { BackoffStrategy } from '../../types/index.js';
 import { createDatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
 import { apiAuthMiddleware } from '../../middleware/apiAuth.js';
@@ -10,30 +8,14 @@ const router: Router = Router();
 // GET /api/v1/flows - List all flows
 router.get('/', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
-    console.log('Getting database connection...');
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
-    
-    // Test database connection first
-    console.log('Testing DB connection...');
-    const healthCheck = await db.query('SELECT 1 as test');
-    console.log('DB Health check:', healthCheck);
-    
-    console.log('Querying flows...');
     const flows = await db.query(
-      'SELECT * FROM flows ORDER BY created_at DESC'
+      'SELECT * FROM flows WHERE project_id = $1 ORDER BY created_at DESC',
+      [projectId]
     );
-    
-    console.log('Query result:', flows);
-    
-    const result = {
-      flows: flows || [],
-      count: (flows || []).length
-    };
-    
-    console.log('Sending response:', result);
-    res.json(result);
+    res.json({ flows: flows || [], count: (flows || []).length });
   } catch (error) {
-    console.error('Error in flows endpoint:', error);
     logger.error('Failed to list flows:', error);
     res.status(500).json({
       error: 'Failed to list flows',
@@ -46,13 +28,14 @@ router.get('/', apiAuthMiddleware, async (req: Request, res: Response) => {
 router.get('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
-    
+
     const result = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
+      'SELECT * FROM flows WHERE id = $1 AND project_id = $2',
+      [id, projectId]
     );
-    
+
     if (result.length === 0) {
       return res.status(404).json({
         error: 'Flow not found',
@@ -74,22 +57,23 @@ router.get('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
 router.post('/', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { name, definition } = req.body;
-    
+    const projectId = (req as any).projectId;
+
     if (!name || !definition) {
       return res.status(400).json({
         error: 'Validation failed',
         message: 'name and definition are required'
       });
     }
-    
+
     const db = createDatabaseConnection();
-    
+
     // Create flow record
     const result = await db.query(
-      `INSERT INTO flows (name, definition, created_at, updated_at)
-       VALUES ($1, $2, NOW(), NOW())
+      `INSERT INTO flows (name, definition, project_id, created_at, updated_at)
+       VALUES ($1, $2, $3, NOW(), NOW())
        RETURNING *`,
-      [name, JSON.stringify(definition)]
+      [name, JSON.stringify(definition), projectId]
     );
     
     logger.info(`Flow created: ${name}`, { flowId: result[0].id });
@@ -112,31 +96,32 @@ router.put('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, definition } = req.body;
-    
+    const projectId = (req as any).projectId;
+
     const db = createDatabaseConnection();
-    
-    // Check if flow exists
+
+    // Check if flow exists and belongs to this project
     const existing = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
+      'SELECT * FROM flows WHERE id = $1 AND project_id = $2',
+      [id, projectId]
     );
-    
+
     if (existing.length === 0) {
       return res.status(404).json({
         error: 'Flow not found',
         message: `Flow with id ${id} not found`
       });
     }
-    
+
     // Update flow
     const result = await db.query(
-      `UPDATE flows 
+      `UPDATE flows
        SET name = COALESCE($1, name),
            definition = COALESCE($2, definition),
            updated_at = NOW()
-       WHERE id = $3
+       WHERE id = $3 AND project_id = $4
        RETURNING *`,
-      [name, definition ? JSON.stringify(definition) : undefined, id]
+      [name, definition ? JSON.stringify(definition) : undefined, id, projectId]
     );
     
     logger.info(`Flow updated: ${id}`, { flowId: id });
@@ -158,23 +143,24 @@ router.put('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
 router.delete('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = (req as any).projectId;
     const db = createDatabaseConnection();
-    
-    // Check if flow exists
+
+    // Check if flow exists and belongs to this project
     const existing = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
+      'SELECT id FROM flows WHERE id = $1 AND project_id = $2',
+      [id, projectId]
     );
-    
+
     if (existing.length === 0) {
       return res.status(404).json({
         error: 'Flow not found',
         message: `Flow with id ${id} not found`
       });
     }
-    
-    // Delete flow (cascade should handle related records)
-    await db.query('DELETE FROM flows WHERE id = $1', [id]);
+
+    // Delete flow (cascade handles related records)
+    await db.query('DELETE FROM flows WHERE id = $1 AND project_id = $2', [id, projectId]);
     
     logger.info(`Flow deleted: ${id}`, { flowId: id });
     
@@ -195,13 +181,14 @@ router.post('/:id/execute', apiAuthMiddleware, async (req: Request, res: Respons
   try {
     const { id } = req.params;
     const { payload } = req.body;
-    
+    const projectId = (req as any).projectId;
+
     const db = createDatabaseConnection();
-    
-    // Check if flow exists
+
+    // Check if flow exists and belongs to this project
     const flowResult = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
+      'SELECT * FROM flows WHERE id = $1 AND project_id = $2',
+      [id, projectId]
     );
     
     if (flowResult.length === 0) {
