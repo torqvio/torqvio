@@ -1259,6 +1259,8 @@ export class AcceleratorAnalyticsService {
           'Feature parity',
           'Community building'
         ],
+        marketDeflection: 0.15,
+        competitiveAdvantage: 0.85
       }
     };
   }

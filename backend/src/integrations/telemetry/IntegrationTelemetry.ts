@@ -66,7 +66,7 @@ export class IntegrationTelemetry {
   private activeTraces: Map<string, PerformanceTrace> = new Map();
   private metricsBuffer: TelemetryMetric[] = [];
   private eventsBuffer: TelemetryEvent[] = [];
-  private flushInterval: NodeJS.Timeout;
+  private flushInterval: NodeJS.Timeout | null = null;
   private bufferSize = 100;
 
   constructor(db: DatabaseConnection) {
@@ -519,11 +519,11 @@ export class IntegrationTelemetry {
 
     if (timeRange) {
       query += ` AND timestamp BETWEEN $${params.length + 1} AND $${params.length + 2}`;
-      params.push(timeRange.from, timeRange.to);
+      params.push(timeRange.from.toISOString(), timeRange.to.toISOString());
     }
 
     query += ` ORDER BY timestamp DESC LIMIT $${params.length + 1}`;
-    params.push(limit);
+    params.push(limit.toString());
 
     const result = await this.db.query(query, params);
     return result;
@@ -551,11 +551,11 @@ export class IntegrationTelemetry {
 
     if (timeRange) {
       query += ` AND t.start_time BETWEEN $${params.length + 1} AND $${params.length + 2}`;
-      params.push(timeRange.from, timeRange.to);
+      params.push(timeRange.from.toISOString(), timeRange.to.toISOString());
     }
 
     query += ` GROUP BY t.id ORDER BY t.start_time DESC LIMIT $${params.length + 1}`;
-    params.push(limit);
+    params.push(limit.toString());
 
     const result = await this.db.query(query, params);
     return result;

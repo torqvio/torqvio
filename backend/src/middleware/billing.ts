@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { PricingService } from '../billing/PricingService.js';
+import { AdaptivePricingService } from '../billing/PricingService.js';
 import { logger } from '../utils/logger.js';
 
-const pricingService = new PricingService();
+const pricingService = new AdaptivePricingService();
 
 export interface BillingRequest extends Request {
   user?: any;
@@ -111,7 +111,7 @@ export function trackUsage(metric: string, amount: number = 1) {
         const tenantId = (req as any).user?.userId;
         
         if (tenantId) {
-          pricingService.incrementUsage(tenantId, metric, amount).catch(error => {
+          pricingService.incrementUsage(tenantId, metric, amount).catch((error: any) => {
             logger.error('Failed to track usage:', error);
           });
         }
