@@ -1,18 +1,20 @@
-import { 
-  Integration, 
-  IntegrationMetrics, 
-  HealthStatus, 
-  LogEntry,
-  IntegrationBundle,
-  EcosystemRecommendation,
+import {
+  Integration,
   Webhook,
   OAuthTokens,
   ExecutionContext,
-  IntegrationResult
-} from '@torqvio/client';
+  IntegrationResult,
+  LogEntry,
+  IntegrationBundle,
+  EcosystemRecommendation,
+  HealthDetail,
+  HealthStatus,
+  connectivity,
+  IntegrationMetrics
+} from '../types/torqvio-client.js';
 import { DatabaseService } from './database-service';
 import { HttpClient } from '../utils/http-client';
-import { Logger } from '../utils/logger';
+import { logger } from '../utils/logger';
 import { Scheduler } from '../utils/scheduler';
 import { EventBus } from '../utils/event-bus';
 import { CryptoService } from '../utils/crypto-service';
@@ -21,7 +23,7 @@ import { Validator } from '../utils/validator';
 export class IntegrationService {
   private db: DatabaseService;
   private http: HttpClient;
-  private logger: Logger;
+  private logger: any = logger;
   private scheduler: Scheduler;
   private eventBus: EventBus;
   private crypto: CryptoService;
@@ -30,7 +32,7 @@ export class IntegrationService {
   constructor() {
     this.db = new DatabaseService();
     this.http = new HttpClient();
-    this.logger = new Logger('IntegrationService');
+    this.logger = logger;
     this.scheduler = new Scheduler();
     this.eventBus = new EventBus();
     this.crypto = new CryptoService();
@@ -228,7 +230,7 @@ export class IntegrationService {
 
       // Check connectivity
       const connectivityCheck = await this.checkConnectivity(integration);
-      checks.push(connectivity);
+      checks.push(connectivityCheck);
 
       // Check recent performance
       const performanceCheck = await this.checkRecentPerformance(id);
@@ -307,7 +309,7 @@ export class IntegrationService {
 
       const logs = await this.db.query(query, params);
       
-      return logs.map(log => ({
+      return logs.map((log: any) => ({
         timestamp: log.created_at,
         level: log.level,
         message: log.message,

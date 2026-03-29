@@ -61,7 +61,7 @@ export class CryptoService {
       const hash = crypto.pbkdf2Sync(text, actualSalt, 10000, 64, 'sha512');
       return actualSalt + ':' + hash.toString('hex');
     } catch (error) {
-      this.this.logger.error('Hashing failed', { error });
+      this.logger.error('Hashing failed', { error });
       throw new Error('Hashing failed');
     }
   }
@@ -72,7 +72,7 @@ export class CryptoService {
       const verifyHash = crypto.pbkdf2Sync(text, salt, 10000, 64, 'sha512');
       return hash === verifyHash.toString('hex');
     } catch (error) {
-      this.this.logger.error('Hash verification failed', { error });
+      this.logger.error('Hash verification failed', { error });
       return false;
     }
   }
@@ -82,7 +82,7 @@ export class CryptoService {
     try {
       return crypto.randomBytes(length).toString('hex');
     } catch (error) {
-      this.this.logger.error('Token generation failed', { error });
+      this.logger.error('Token generation failed', { error });
       throw new Error('Token generation failed');
     }
   }
@@ -98,7 +98,7 @@ export class CryptoService {
         keyId
       };
     } catch (error) {
-      this.this.logger.error('API key generation failed', { error });
+      this.logger.error('API key generation failed', { error });
       throw new Error('API key generation failed');
     }
   }
@@ -108,7 +108,7 @@ export class CryptoService {
       const pattern = /^tv_[a-f0-9]{16}_[a-f0-9]{64}$/;
       return pattern.test(apiKey);
     } catch (error) {
-      this.this.logger.error('API key validation failed', { error });
+      this.logger.error('API key validation failed', { error });
       return false;
     }
   }
@@ -140,7 +140,7 @@ export class CryptoService {
 
       return `${encodedHeader}.${encodedPayload}.${signature}`;
     } catch (error) {
-      this.this.logger.error('JWT generation failed', { error });
+      this.logger.error('JWT generation failed', { error });
       throw new Error('JWT generation failed');
     }
   }
@@ -173,7 +173,7 @@ export class CryptoService {
 
       return decodedPayload;
     } catch (error) {
-      this.this.logger.error('JWT verification failed', { error });
+      this.logger.error('JWT verification failed', { error });
       throw new Error('JWT verification failed');
     }
   }
@@ -186,7 +186,7 @@ export class CryptoService {
         .update(payload)
         .digest('hex');
     } catch (error) {
-      this.this.logger.error('Webhook signature generation failed', { error });
+      this.logger.error('Webhook signature generation failed', { error });
       throw new Error('Webhook signature generation failed');
     }
   }
@@ -199,7 +199,7 @@ export class CryptoService {
         Buffer.from(expectedSignature, 'hex')
       );
     } catch (error) {
-      this.this.logger.error('Webhook signature verification failed', { error });
+      this.logger.error('Webhook signature verification failed', { error });
       return false;
     }
   }
@@ -215,7 +215,7 @@ export class CryptoService {
       const masked = '*'.repeat(data.length - visibleChars);
       return visible + masked;
     } catch (error) {
-      this.this.logger.error('Data masking failed', { error });
+      this.logger.error('Data masking failed', { error });
       return '*'.repeat(data.length);
     }
   }
@@ -231,7 +231,7 @@ export class CryptoService {
       const masked = '*'.repeat(username.length - 2);
       return `${visible}${masked}@${domain}`;
     } catch (error) {
-      this.this.logger.error('Email masking failed', { error });
+      this.logger.error('Email masking failed', { error });
       return '***@***.***';
     }
   }
@@ -247,7 +247,7 @@ export class CryptoService {
       const masked = '*'.repeat(cleaned.length - 4);
       return masked + lastFour;
     } catch (error) {
-      this.this.logger.error('Credit card masking failed', { error });
+      this.logger.error('Credit card masking failed', { error });
       return '****';
     }
   }
@@ -256,9 +256,9 @@ export class CryptoService {
   rotateKey(): void {
     try {
       this.secretKey = crypto.randomBytes(this.keyLength);
-      this.this.logger.info('Encryption key rotated');
+      this.logger.info('Encryption key rotated');
     } catch (error) {
-      this.this.logger.error('Key rotation failed', { error });
+      this.logger.error('Key rotation failed', { error });
       throw new Error('Key rotation failed');
     }
   }
@@ -274,10 +274,10 @@ export class CryptoService {
       }
       
       // Generate a new key for development/testing
-      this.this.logger.warn('No encryption key found in environment, generating temporary key');
+      this.logger.warn('No encryption key found in environment, generating temporary key');
       return crypto.randomBytes(this.keyLength);
     } catch (error) {
-      this.this.logger.error('Failed to get or create secret key', { error });
+      this.logger.error('Failed to get or create secret key', { error });
       throw new Error('Key initialization failed');
     }
   }
@@ -453,7 +453,7 @@ export class CryptoService {
       
       return ipv4Regex.test(ip) || ipv6Regex.test(ip);
     } catch (error) {
-      this.this.logger.error('IP validation failed', { error });
+      this.logger.error('IP validation failed', { error });
       return false;
     }
   }
@@ -466,7 +466,7 @@ export class CryptoService {
       const randomValue = bytes.readUInt32BE(0);
       return min + (randomValue % range);
     } catch (error) {
-      this.this.logger.error('Secure random generation failed', { error });
+      this.logger.error('Secure random generation failed', { error });
       // Fallback to Math.random (less secure)
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
