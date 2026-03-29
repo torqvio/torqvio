@@ -906,7 +906,7 @@ export class AcceleratorAnalyticsService {
           q2: 720,
           q3: 600,
           q4: 840
-        }
+        },
         preventableLosses: 75000,
         psychologicalFactors: {
           loss_aversion: 0.40,
@@ -1260,37 +1260,8 @@ export class AcceleratorAnalyticsService {
           'Community building'
         ],
       }
-    ],
-    revenuePredictions: [
-      {
-        period: 'next_month',
-        predictedRevenue: 550000,
-        confidence: 0.78,
-        psychologicalDrivers: ['loss_aversion_messaging', 'social_proof_campaigns'],
-        seasonalFactors: ['q4_growth', 'holiday_spending'],
-        variance: 0.15
-      }
-    ],
-    psychologicalPredictions: [
-      {
-        metric: 'conversion_rate',
-        prediction: 0.18,
-        timeframe: '30_days',
-        psychologicalFactors: ['urgency_effects', 'social_proof_influence'],
-        confidence: 0.75
-      }
-    ],
-    opportunityPredictions: [
-      {
-        type: 'enterprise_upsell',
-        value: 125000,
-        probability: 0.65,
-        psychologicalLeverage: ['status_seeking', 'fear_of_missing_out'],
-        timeframe: '60_days',
-        actions: ['Executive outreach', 'ROI case study']
-      }
-    ]
-  };
+    };
+  }
 
   private generateTimeSeries(timeRange: TimeRange, baseValue: number): TimeSeriesPoint[] {
     const points: TimeSeriesPoint[] = [];

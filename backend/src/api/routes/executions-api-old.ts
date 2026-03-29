@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { logger } from '../../utils/logger.js';
 import { FlowRepository, FlowExecutionRepository } from '../../repositories/FlowRepository.js';
 import { WorkflowService } from '../../services/WorkflowService.js';
+import { DatabaseConnection } from '../../database/connection.js';
+import { WorkflowEngine } from '../../services/WorkflowEngine.js';
 import { 
   ListExecutionsQuery,
   ApiResponse,
@@ -36,52 +38,6 @@ router.get('/', async (req: Request, res: Response) => {
     };
     
     res.json(response);
-      // Parse results once (only if exists)
-      if (execution.results) {
-        try {
-          results = typeof execution.results === 'string' 
-            ? JSON.parse(execution.results) 
-            : execution.results;
-        } catch (error) {
-          console.error('Error parsing execution results:', error);
-        }
-      }
-      
-      return {
-        id: execution.id,
-        workflow_id: execution.flow_id,
-        status: execution.status,
-        payload,
-        results,
-        error: execution.error,
-        created_at: execution.created_at,
-        started_at: execution.started_at,
-        completed_at: execution.completed_at,
-        updated_at: execution.updated_at
-      };
-    });
-    
-    // Generate pagination metadata
-    const hasMore = formattedExecutions.length === limitNum;
-    const nextCursor = hasMore && formattedExecutions.length > 0 
-      ? formattedExecutions[formattedExecutions.length - 1].created_at 
-      : null;
-    const prevCursor = formattedExecutions.length > 0 
-      ? formattedExecutions[0].created_at 
-      : null;
-    
-    res.json({
-      executions: formattedExecutions,
-      pagination: {
-        count,
-        limit: limitNum,
-        hasMore,
-        nextCursor,
-        prevCursor,
-        direction,
-        workflow_id
-      }
-    });
   } catch (error) {
     logger.error('Failed to list executions:', error);
     
@@ -310,7 +266,8 @@ router.post('/:id/retry', async (req: Request, res: Response) => {
       newExecutionId: newExecution.id 
     });
     
-    executeWorkflowAsync(flow, newExecution, payload).catch(error => {
+    const workflowEngine = WorkflowEngine.getInstance();
+    await workflowEngine.trigger(flow.name, payload).catch((error: any) => {
       logger.error('Async workflow execution failed:', error);
     });
     

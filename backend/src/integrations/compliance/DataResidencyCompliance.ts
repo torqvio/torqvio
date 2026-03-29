@@ -851,7 +851,7 @@ export class DataResidencyCompliance {
   }
 
   private evaluateCondition(data: any, condition: RuleCondition): boolean {
-    let value = this.getNestedValue(data, condition.field);
+    const value = this.getNestedValue(data, condition.field);
     
     if (value === null || value === undefined) {
       return false;

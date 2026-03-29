@@ -501,8 +501,8 @@ export class AcceleratorShadowFeaturesService {
   private async generateUpgradePrompt(feature: ShadowFeature, userProfile: PsychologicalContext): Promise<UpgradePrompt> {
     const trigger = this.selectBestTrigger(feature, userProfile);
     
-    let title = `Unlock ${feature.name}`;
-    let message = trigger.message;
+    const title = `Unlock ${feature.name}`;
+    const message = trigger.message;
     let urgencyMessage = '';
     let socialProof = '';
     let ctaUrgency = trigger.urgencyLevel;

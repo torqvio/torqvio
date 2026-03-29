@@ -196,7 +196,7 @@ export class ResiliencePatterns {
     }
 
     const startTime = Date.now();
-    let metrics = this.getOrCreateMetrics(integrationId, policy.id);
+    const metrics = this.getOrCreateMetrics(integrationId, policy.id);
 
     try {
       // Check circuit breaker first

@@ -49,27 +49,31 @@ router.get('/', apiAuthMiddleware, async (req: Request, res: Response) => {
     });
   }
 });
-        updated_at: flow.updated_at
-      };
-    });
+
+// GET /workflows - List all workflows (matching documented API)
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const { cursor, limit = 10, direction = 'forward' } = req.query;
     
-    // Generate pagination metadata
-    const hasMore = workflows.length === limitNum;
-    const nextCursor = hasMore && workflows.length > 0 
-      ? workflows[workflows.length - 1].created_at 
-      : null;
-    const prevCursor = workflows.length > 0 
-      ? workflows[0].created_at 
-      : null;
+    // Convert limit to number and validate
+    const limitNum = Math.min(Number(limit), 100); // Max 100 items per page
+    
+    const query = {
+      limit: limitNum,
+      cursor: cursor as string,
+      direction: direction as 'forward' | 'backward'
+    };
+    
+    const { workflows, meta } = await flowRepository.list(query);
     
     res.json({
       workflows,
       pagination: {
-        count,
+        count: meta.count,
         limit: limitNum,
-        hasMore,
-        nextCursor,
-        prevCursor,
+        hasMore: meta.hasMore,
+        nextCursor: meta.nextCursor,
+        prevCursor: meta.prevCursor,
         direction
       }
     });

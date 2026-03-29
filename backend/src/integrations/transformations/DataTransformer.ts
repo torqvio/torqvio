@@ -280,7 +280,7 @@ export class DataTransformer {
 
     try {
       // Apply conditional logic first
-      let processedData = await this.applyConditionalLogic(sourceData, template.conditionalLogic || []);
+      const processedData = await this.applyConditionalLogic(sourceData, template.conditionalLogic || []);
 
       // Apply field mappings
       for (const mapping of template.mappings) {
