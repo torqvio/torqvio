@@ -25,6 +25,7 @@ import { createEventsRouter } from './routes/events-ingestion.js';
 import { initializeSocketEvents, EventBroadcaster } from './routes/events-socket.js';
 import eventsStreamRouter from './routes/events-stream.js';
 import apiKeysRoutes from './routes/api-keys.js';
+import githubStatsRoutes from './routes/github-stats.js';
 import { createApiRateLimiter, createStrictRateLimiter } from '../middleware/rateLimiter.js';
 import { connectionPoolManager } from '../middleware/connectionPool.js';
 import { logger } from '../utils/logger.js';
@@ -131,7 +132,8 @@ export function createApiServer(): ApiServerResult {
   app.use('/api/v1/billing', billingRoutes);
   app.use('/api/v1/flows', flowRoutes);
   app.use('/api/v1/executions', executionRoutes);
-  app.use('/api/v1/webhooks', webhookRateLimit.middleware);
+  app.use('/api/v1/github-stats', githubStatsRoutes);
+    app.use('/api/v1/webhooks', webhookRateLimit.middleware);
   app.use('/api/v1/webhooks', webhookRoutes);
   // Legacy path for documentation compatibility
   app.use('/api/webhooks', webhookRateLimit.middleware);

@@ -43,10 +43,14 @@ export class SmartCleanupSystem {
     if (this.realtimeCleanupRunning) return;
     this.realtimeCleanupRunning = true;
     try {
-      // Check webhooks created in the last minute
+      // Check webhooks created in the last minute - optimized query
       const recentWebhooks = await this.db.query(`
         SELECT COUNT(*) as count, 
-               SUBSTRING(url FROM '://([^/]+)') as domain
+               CASE 
+                 WHEN url LIKE 'http://%' THEN SUBSTRING(url FROM 'http://([^/]+)')
+                 WHEN url LIKE 'https://%' THEN SUBSTRING(url FROM 'https://([^/]+)')
+                 ELSE 'unknown'
+               END as domain
         FROM webhooks 
         WHERE created_at > NOW() - INTERVAL '1 minute'
         GROUP BY domain
@@ -193,15 +197,24 @@ export class SmartCleanupSystem {
       totalDeleted += spamResult.length;
 
       // 3. Emergency deactivation of failing webhooks
-      const failureResult = await this.db.query(`
-        UPDATE webhooks
-        SET active = false
-        WHERE retry_count > 5
-        AND last_triggered_at < NOW() - INTERVAL '5 minutes'
-        RETURNING id
-      `);
-
-      const deactivatedCount = failureResult.length;
+      let deactivatedCount = 0;
+      try {
+        const failureResult = await this.db.query(`
+          UPDATE webhooks
+          SET active = false
+          WHERE retry_count > 5
+          AND last_triggered_at < NOW() - INTERVAL '5 minutes'
+          RETURNING id
+        `);
+        deactivatedCount = failureResult.length;
+      } catch (columnError) {
+        // Handle missing retry_count column gracefully
+        if (columnError.code === '42703') {
+          logger.debug('retry_count column not found, skipping webhook deactivation');
+        } else {
+          throw columnError;
+        }
+      }
 
       this.updateCleanupStats(totalDeleted);
       
@@ -293,15 +306,24 @@ export class SmartCleanupSystem {
       totalDeleted += inactiveDeleted;
 
       // 3. Remove webhooks with high failure rates (abuse detection)
-      const failureResult = await this.db.query(`
-        UPDATE webhooks
-        SET active = false
-        WHERE retry_count > 10
-        AND last_triggered_at < NOW() - INTERVAL '30 minutes'
-        RETURNING id
-      `);
-
-      const deactivatedCount = failureResult.length;
+      let deactivatedCount = 0;
+      try {
+        const failureResult = await this.db.query(`
+          UPDATE webhooks
+          SET active = false
+          WHERE retry_count > 10
+          AND last_triggered_at < NOW() - INTERVAL '30 minutes'
+          RETURNING id
+        `);
+        deactivatedCount = failureResult.length;
+      } catch (columnError) {
+        // Handle missing retry_count column gracefully
+        if (columnError.code === '42703') {
+          logger.debug('retry_count column not found, skipping webhook deactivation in hourly cleanup');
+        } else {
+          throw columnError;
+        }
+      }
 
       // 4. Rate limiting cleanup - remove webhooks from same domain spamming
       // Use a window function to both count per domain and rank rows in one pass

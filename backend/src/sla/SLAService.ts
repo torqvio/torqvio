@@ -1,4 +1,6 @@
-import { DatabaseConnection } from '../database/connection';
+import { DatabaseConnection } from '../database/connection.js';
+import { logger } from '../utils/logger.js';
+import { WorkflowEngine } from '../services/WorkflowEngine.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface SLAMetrics {
@@ -49,9 +51,11 @@ export interface SLAViolation {
 
 export class SLAService {
   private db: DatabaseConnection;
+  private workflowEngine: WorkflowEngine;
 
   constructor(db: DatabaseConnection) {
     this.db = db;
+    this.workflowEngine = WorkflowEngine.getInstance();
   }
 
   async calculateSLAMetrics(tenantId: string, period: string): Promise<SLAMetrics> {
@@ -226,10 +230,12 @@ export class SLAService {
     const dateRange = this.getDateRange(period);
     
     const violations = await this.db.query(`
-      SELECT * FROM sla_violations 
+      SELECT id, metric_type, actual_value, target_value, violation_duration, severity, resolved_at, service_credits, created_at 
+      FROM sla_violations 
       WHERE tenant_id = $1 
       AND created_at BETWEEN $2 AND $3
       ORDER BY created_at DESC
+      LIMIT 1000
     `, [tenantId, dateRange.start, dateRange.end]);
 
     return violations.map(row => ({
@@ -319,8 +325,29 @@ export class SLAService {
         const criticalViolations = report.violations.filter(v => v.severity === 'critical');
         
         if (criticalViolations.length > 0) {
-          // TODO: Send alert notification
-          console.log(`Critical SLA violations detected for tenant ${tenant.id}:`, criticalViolations);
+          // Send alert notification using WorkflowEngine
+          await this.workflowEngine.trigger('sla-alert', {
+            tenantId: tenant.id,
+            violations: criticalViolations,
+            severity: 'critical',
+            timestamp: new Date().toISOString(),
+            report: {
+              period: report.period,
+              overallScore: report.overallScore,
+              totalViolations: report.violations.length
+            }
+          });
+          
+          logger.warn(`Critical SLA violations detected for tenant ${tenant.id}:`, {
+            tenantId: tenant.id,
+            violationCount: criticalViolations.length,
+            violations: criticalViolations.map(v => ({
+              metric: v.metric,
+              actualValue: v.actualValue,
+              targetValue: v.targetValue,
+              severity: v.severity
+            }))
+          });
         }
 
         // Auto-resolve old violations
@@ -432,7 +459,8 @@ export class SLAService {
 
   async getSLATrends(tenantId: string, periods: number = 12): Promise<any[]> {
     const trends = await this.db.query(`
-      SELECT * FROM sla_metrics 
+      SELECT period, overall_sla, uptime_actual, recovery_success_actual, response_time_actual, error_rate_actual, created_at
+      FROM sla_metrics 
       WHERE tenant_id = $1 
       ORDER BY created_at DESC 
       LIMIT $2

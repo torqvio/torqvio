@@ -1,9 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
-import { createDatabaseConnection } from './connection.js';
+import { DatabaseConnection } from './connection.js';
 import { logger } from '../utils/logger.js';
 
 async function seedDatabase() {
-  const db = createDatabaseConnection();
+  const db = DatabaseConnection.getInstance();
   
   try {
     logger.info('🌱 Seeding database with test data...');

@@ -121,8 +121,11 @@ export class RecoveryAnalyticsModel {
   }
 
   async getRecentRecoveryEvents(projectId: string, limit: number = 10): Promise<RecoveryEvent[]> {
+    const limitedCount = Math.min(limit, 100); // Max 100 for safety
     const query = `
-      SELECT * FROM recovery_events
+      SELECT id, project_id, flow_id, execution_id, event_type, severity, 
+             recovery_time, recovery_action, created_at, updated_at, metadata
+      FROM recovery_events
       WHERE project_id = $1
       ORDER BY created_at DESC
       LIMIT $2
@@ -132,13 +135,17 @@ export class RecoveryAnalyticsModel {
   }
 
   async getDailyRecoveryStats(projectId: string, days: number = 30): Promise<RecoveryAnalytics[]> {
+    const limitedDays = Math.min(days, 365); // Max 1 year for safety
     const query = `
-      SELECT * FROM recovery_analytics
-      WHERE project_id = $1 AND date >= CURRENT_DATE - INTERVAL '${days} days'
+      SELECT id, project_id, date, total_executions, failed_executions, 
+             recovery_rate, avg_recovery_time, created_at, updated_at
+      FROM recovery_analytics
+      WHERE project_id = $1 AND date >= CURRENT_DATE - INTERVAL '${limitedDays} days'
       ORDER BY date DESC
+      LIMIT $2
     `;
     
-    return await this.db.query<RecoveryAnalytics>(query, [projectId]);
+    return await this.db.query<RecoveryAnalytics>(query, [projectId, limitedDays]);
   }
 
   async getTodayRecoveryStats(projectId: string): Promise<{

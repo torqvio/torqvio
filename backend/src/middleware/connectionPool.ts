@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { createDatabaseConnection } from '../database/connection.js';
+import { DatabaseConnection } from '../database/connection.js';
 
 // Connection pool middleware to prevent connection exhaustion - Ultra optimized
 class ConnectionPoolManager {
@@ -12,7 +12,7 @@ class ConnectionPoolManager {
     return new Promise((resolve, reject) => {
       if (this.activeConnections < this.maxConnections) {
         this.activeConnections++;
-        resolve(createDatabaseConnection());
+        resolve(DatabaseConnection.getInstance());
       } else {
         const timestamp = Date.now();
         this.queue.push({ resolve, reject, timestamp });
@@ -33,7 +33,7 @@ class ConnectionPoolManager {
     if (this.queue.length > 0) {
       const next = this.queue.shift();
       if (next) {
-        next.resolve(createDatabaseConnection());
+        next.resolve(DatabaseConnection.getInstance());
       }
     } else {
       this.activeConnections--;

@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { FlowExecutionModel } from '../database/models.js';
 import { ExecutionEngine } from '../engine/ExecutionEngine.js';
-import { createDatabaseConnection } from '../database/connection.js';
+import { DatabaseConnection } from '../database/connection.js';
 import { ExecutionStatus } from '../types/index.js';
 
 export class Scheduler {
@@ -12,7 +12,7 @@ export class Scheduler {
   private cronJobs: Map<string, any> = new Map();
 
   constructor() {
-    const db = createDatabaseConnection();
+    const db = DatabaseConnection.getInstance();
     this.executionModel = new FlowExecutionModel(db);
     this.executionEngine = new ExecutionEngine();
   }
@@ -199,7 +199,7 @@ export class Scheduler {
    */
   private async cleanupExpiredLocks(): Promise<void> {
     try {
-      const db = createDatabaseConnection();
+      const db = DatabaseConnection.getInstance();
       await db.query('SELECT cleanup_expired_locks()');
       console.log('🧹 Cleaned up expired locks');
     } catch (error) {
@@ -212,7 +212,7 @@ export class Scheduler {
    */
   private async performHealthCheck(): Promise<void> {
     try {
-      const db = createDatabaseConnection();
+      const db = DatabaseConnection.getInstance();
       const isHealthy = await db.healthCheck();
       
       if (!isHealthy) {
@@ -229,7 +229,7 @@ export class Scheduler {
    */
   private async collectMetrics(): Promise<void> {
     try {
-      const db = createDatabaseConnection();
+      const db = DatabaseConnection.getInstance();
       
       // Count executions by status
       const statusCounts = await db.query(`

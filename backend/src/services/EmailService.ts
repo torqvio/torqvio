@@ -95,6 +95,20 @@ class EmailService {
     await this.send(to, subject, html, text);
   }
 
+  async sendPasswordResetSuccess(to: string, name: string): Promise<void> {
+    const loginUrl = `${this.appUrl}/login`;
+    const subject = 'Password Reset Successful - Torqvio';
+
+    const htmlTemplate = this.loadTemplate('password-reset-success');
+    const html = htmlTemplate
+      .replace(/\{\{name\}\}/g, name)
+      .replace(/\{\{loginUrl\}\}/g, loginUrl);
+
+    const text = `Hi ${name},\n\nYour Torqvio password has been successfully reset.\n\nSign in here: ${loginUrl}\n\n— Torqvio`;
+
+    await this.send(to, subject, html, text);
+  }
+
   async sendWelcome(to: string, name: string): Promise<void> {
     const subject = 'Welcome to Torqvio';
     const dashboardUrl = `${this.appUrl}/dashboard`;

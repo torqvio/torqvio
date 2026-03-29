@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
-import { createDatabaseConnection } from '../database/connection.js';
+import { DatabaseConnection } from '../database/connection.js';
 
 export interface WebhookSubscription {
   id: string;
@@ -33,7 +33,7 @@ export interface WebhookDeliveryResult {
 }
 
 export class WebhookService {
-  private db = createDatabaseConnection();
+  private db = DatabaseConnection.getInstance();
 
   /**
    * Generate HMAC SHA256 signature for webhook payload
@@ -160,10 +160,12 @@ export class WebhookService {
    */
   async getWebhooksForEvent(eventType: string): Promise<WebhookSubscription[]> {
     const query = `
-      SELECT * FROM webhook_subscriptions 
+      SELECT id, url, events, secret, active, created_at, updated_at, last_triggered_at, retry_count, max_retries, next_retry_at
+      FROM webhook_subscriptions 
       WHERE active = true 
       AND $1 = ANY(events)
       ORDER BY created_at ASC
+      LIMIT 100
     `;
     
     return await this.db.query<WebhookSubscription>(query, [eventType]);
@@ -210,7 +212,7 @@ export class WebhookService {
    * List all webhooks
    */
   async listWebhooks(): Promise<WebhookSubscription[]> {
-    const query = 'SELECT * FROM webhook_subscriptions ORDER BY created_at DESC';
+    const query = 'SELECT id, url, events, secret, active, created_at, updated_at, last_triggered_at, retry_count, max_retries, next_retry_at FROM webhook_subscriptions ORDER BY created_at DESC LIMIT 100';
     return await this.db.query<WebhookSubscription>(query);
   }
 
@@ -218,7 +220,7 @@ export class WebhookService {
    * Get webhook by ID
    */
   async getWebhook(id: string): Promise<WebhookSubscription | null> {
-    const query = 'SELECT * FROM webhook_subscriptions WHERE id = $1';
+    const query = 'SELECT id, url, events, secret, active, created_at, updated_at, last_triggered_at, retry_count, max_retries, next_retry_at FROM webhook_subscriptions WHERE id = $1';
     const webhooks = await this.db.query<WebhookSubscription>(query, [id]);
     return webhooks.length > 0 ? (webhooks[0] ?? null) : null;
   }
@@ -317,10 +319,13 @@ export class WebhookService {
    */
   async processRetries(): Promise<void> {
     const query = `
-      SELECT * FROM webhook_subscriptions 
+      SELECT id, url, events, secret, active, created_at, updated_at, last_triggered_at, retry_count, max_retries, next_retry_at
+      FROM webhook_subscriptions 
       WHERE active = true 
       AND next_retry_at <= NOW()
       AND retry_count > 0
+      ORDER BY next_retry_at ASC
+      LIMIT 50
     `;
     
     const webhooks = await this.db.query<WebhookSubscription>(query);

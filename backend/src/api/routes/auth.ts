@@ -496,7 +496,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       [email.toLowerCase()]
     );
 
-    if ((userResult as any).rows.length === 0) {
+    if (!userResult || !userResult.rows || userResult.rows.length === 0) {
       // Always return success to prevent email enumeration
       return res.json({ message: 'If an account exists, a reset link has been sent' });
     }
@@ -581,7 +581,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       const userResult = await db.query('SELECT email, name FROM users WHERE id = $1', [userId]);
       if ((userResult as any).rows.length > 0) {
         const user = (userResult as any).rows[0];
-        emailService.sendPasswordResetSuccess(user.email, user.name).catch(err =>
+        emailService.sendPasswordResetSuccess(user.email, user.name).catch((err: Error) =>
           logger.error('Failed to send password reset success email:', err)
         );
       }

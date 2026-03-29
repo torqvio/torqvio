@@ -1,14 +1,19 @@
 import axios from 'axios';
 import { IntegrationConnector, ExternalEvent, ProcessedEvent, ShopifyConfig, WebhookConfig, OrderRecoveryData } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { DatabaseConnection } from '../../database/connection.js';
+import { logger } from '../../utils/logger.js';
+import { WorkflowEngine } from '../../services/WorkflowEngine.js';
 
 export class ShopifyConnector implements IntegrationConnector {
   private config: ShopifyConfig;
   private baseUrl: string;
+  private workflowEngine: WorkflowEngine;
 
   constructor(config: ShopifyConfig) {
     this.config = config;
     this.baseUrl = `https://${config.shopDomain}.myshopify.com`;
+    this.workflowEngine = WorkflowEngine.getInstance();
   }
 
   async validateCredentials(config: ShopifyConfig): Promise<boolean> {
@@ -306,8 +311,7 @@ export class ShopifyConnector implements IntegrationConnector {
 
       console.log('Triggering order recovery workflow:', orderData);
       
-      // TODO: Integrate with WorkflowEngine.trigger()
-      // await WorkflowEngine.trigger('order-recovery', orderData);
+      await this.workflowEngine.trigger('order-recovery', orderData);
     } catch (error) {
       console.error('Error triggering order recovery:', error);
       throw error;
@@ -317,8 +321,7 @@ export class ShopifyConnector implements IntegrationConnector {
   private async triggerCheckoutRecovery(checkoutData: any): Promise<void> {
     console.log('Triggering checkout recovery workflow:', checkoutData);
     
-    // TODO: Integrate with WorkflowEngine.trigger()
-    // await WorkflowEngine.trigger('checkout-recovery', checkoutData);
+    await this.workflowEngine.trigger('checkout-recovery', checkoutData);
   }
 
   // Helper method to get customer order history

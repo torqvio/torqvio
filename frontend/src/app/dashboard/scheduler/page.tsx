@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Search, Plus, ChevronDown, List, CalendarDays } from 'lucide-react'
+import { Search, Plus, ChevronDown, List, CalendarDays, Brain, TrendingUp, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ScheduleTable, type Schedule } from '@/components/scheduler/ScheduleTable'
 import { ScheduleCalendar } from '@/components/scheduler/ScheduleCalendar'
@@ -47,6 +47,62 @@ function buildCountdownMap(schedules: Schedule[]): Record<string, number> {
   }
   return map
 }
+
+interface AutonomousSuggestion {
+  id: string
+  type: 'pattern' | 'optimization' | 'cost_saving'
+  title: string
+  description: string
+  impact: string
+  confidence: number
+  workflowId: string
+  workflowName: string
+  currentSchedule: string
+  suggestedSchedule: string
+  estimatedSavings?: number
+}
+
+const AUTONOMOUS_SUGGESTIONS: AutonomousSuggestion[] = [
+  {
+    id: 'sug_001',
+    type: 'pattern',
+    title: 'Monday Morning Data Spike Detected',
+    description: 'Your data processing workload spikes every Monday at 9 AM. We can optimize timing.',
+    impact: 'Reduce execution cost by 32%',
+    confidence: 94,
+    workflowId: '2',
+    workflowName: 'Data Processing Pipeline',
+    currentSchedule: 'Every 15 min',
+    suggestedSchedule: 'Mon 8:45 AM, Mon 9:15 AM, Mon 2:00 PM',
+    estimatedSavings: 127
+  },
+  {
+    id: 'sug_002',
+    type: 'cost_saving',
+    title: 'Weekend Backup Optimization',
+    description: 'Backup jobs run during low usage periods. We can consolidate for efficiency.',
+    impact: 'Save 45% on weekend compute costs',
+    confidence: 87,
+    workflowId: '9',
+    workflowName: 'Backup Job',
+    currentSchedule: 'Sun 3:00 AM',
+    suggestedSchedule: 'Sun 1:00 AM (bi-weekly)',
+    estimatedSavings: 89
+  },
+  {
+    id: 'sug_003',
+    type: 'pattern',
+    title: 'Email Campaign Pattern Learning',
+    description: 'Your campaigns perform best on Tue/Wed/Thu at 10 AM. Auto-adjust schedule?',
+    impact: 'Increase engagement by 28%',
+    confidence: 91,
+    workflowId: '3',
+    workflowName: 'Email Campaign',
+    currentSchedule: 'Weekdays 10:00 AM',
+    suggestedSchedule: 'Tue,Wed,Thu 10:00 AM',
+    estimatedSavings: -45
+  }
+]
 
 const INITIAL_SCHEDULES: Schedule[] = [
   {
@@ -141,6 +197,8 @@ export default function SchedulerPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('table')
   const [statusOpen, setStatusOpen] = useState(false)
+  const [showIntelligence, setShowIntelligence] = useState(true)
+  const [suggestions, setSuggestions] = useState<AUTONOMOUS_SUGGESTIONS>(AUTONOMOUS_SUGGESTIONS)
 
   const statusRef = useRef<HTMLDivElement>(null)
   useClickOutside(statusRef, () => setStatusOpen(false))
@@ -194,6 +252,25 @@ export default function SchedulerPage() {
 
   const currentStatus = STATUS_OPTIONS.find((o) => o.value === statusFilter)!
 
+  const handleApplySuggestion = useCallback((suggestionId: string) => {
+    const suggestion = suggestions.find(s => s.id === suggestionId)
+    if (!suggestion) return
+    
+    // Update the schedule with the intelligent suggestion
+    setSchedules(prev => prev.map(s => 
+      s.workflowId === suggestion.workflowId 
+        ? { ...s, humanReadable: suggestion.suggestedSchedule }
+        : s
+    ))
+    
+    // Remove the suggestion after applying
+    setSuggestions(prev => prev.filter(s => s.id !== suggestionId))
+  }, [suggestions])
+
+  const handleDismissSuggestion = useCallback((suggestionId: string) => {
+    setSuggestions(prev => prev.filter(s => s.id !== suggestionId))
+  }, [])
+
   return (
     <div className="flex flex-col overflow-hidden -m-6" style={{ height: 'calc(100vh - 48px)' }}>
       {/* Toolbar */}
@@ -245,6 +322,23 @@ export default function SchedulerPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Intelligence Toggle */}
+          <button
+            onClick={() => setShowIntelligence(!showIntelligence)}
+            className={cn(
+              'flex items-center gap-1.5 h-[26px] px-2 text-xs rounded-md transition-colors',
+              showIntelligence 
+                ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-purple-400 border border-purple-500/30' 
+                : 'bg-surface border border-border text-text-muted hover:text-text-secondary'
+            )}
+          >
+            <Brain className="w-3.5 h-3.5" />
+            <span>Intelligence</span>
+            {suggestions.length > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+            )}
+          </button>
+
           <div className="flex items-center border border-border rounded-md overflow-hidden">
             <button
               onClick={() => setViewMode('table')}
@@ -274,6 +368,58 @@ export default function SchedulerPage() {
           </button>
         </div>
       </div>
+
+      {/* Autonomous Suggestion Bar */}
+      {showIntelligence && suggestions.length > 0 && (
+        <div className="mx-4 mt-4 p-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Brain className="w-4 h-4 text-purple-400" />
+              <span className="text-xs font-medium text-purple-300">Autonomous Scheduling</span>
+              <span className="text-xs text-gray-400">{suggestions.length} optimization{ suggestions.length > 1 ? 's' : '' } available</span>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            {suggestions.slice(0, 2).map((suggestion) => (
+              <div key={suggestion.id} className="flex items-start gap-3 p-2 rounded bg-[#1A1F2E]/50">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-xs font-medium text-white">{suggestion.title}</p>
+                    <span className="text-xs text-gray-400">{suggestion.confidence}% confidence</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-2">{suggestion.description}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3 text-green-400" />
+                      <span className="text-xs text-green-400">{suggestion.impact}</span>
+                    </div>
+                    {suggestion.estimatedSavings && (
+                      <span className="text-xs text-purple-400">
+                        {suggestion.estimatedSavings > 0 ? 'Save' : 'Cost'} €{Math.abs(suggestion.estimatedSavings)}/mo
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleApplySuggestion(suggestion.id)}
+                    className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                  >
+                    Apply
+                  </button>
+                  <button
+                    onClick={() => handleDismissSuggestion(suggestion.id)}
+                    className="p-1 text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {viewMode === 'table' ? (
         <ScheduleTable

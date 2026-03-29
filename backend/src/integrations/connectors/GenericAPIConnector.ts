@@ -1,13 +1,18 @@
 import axios from 'axios';
 import crypto from 'crypto';
-import { IntegrationConnector, ExternalEvent, ProcessedEvent, GenericAPIConfig, WebhookConfig } from '../types';
+import { IntegrationConnector, ExternalEvent, ProcessedEvent, GenericAPIConfig, WebhookConfig, MappedEvent } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { DatabaseConnection } from '../../database/connection.js';
+import { logger } from '../../utils/logger.js';
+import { WorkflowEngine } from '../../services/WorkflowEngine.js';
 
 export class GenericAPIConnector implements IntegrationConnector {
   private config: GenericAPIConfig;
+  private workflowEngine: WorkflowEngine;
 
   constructor(config: GenericAPIConfig) {
     this.config = config;
+    this.workflowEngine = WorkflowEngine.getInstance();
   }
 
   async validateCredentials(config: GenericAPIConfig): Promise<boolean> {
@@ -224,8 +229,7 @@ export class GenericAPIConnector implements IntegrationConnector {
   private async triggerWorkflow(mappedEvent: MappedEvent): Promise<void> {
     console.log('Triggering generic API workflow:', mappedEvent);
     
-    // TODO: Integrate with WorkflowEngine.trigger()
-    // await WorkflowEngine.trigger(mappedEvent.workflowType, mappedEvent.data);
+    await this.workflowEngine.trigger(mappedEvent.workflowType, mappedEvent.data);
   }
 
   private getAuthHeaders(config: GenericAPIConfig): Record<string, string> {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { Brain, Lightbulb, Zap, TrendingUp } from 'lucide-react'
 import { AlertBanner } from '@/components/dashboard/AlertBanner'
 import { WorkflowSubNav } from '@/components/workflows/WorkflowSubNav'
 import { WorkflowToolbar, type ViewMode, type SortOption, type SortDirection, type StatusFilter } from '@/components/workflows/WorkflowToolbar'
@@ -11,6 +12,62 @@ import { WorkflowListSkeleton, WorkflowGridSkeleton } from '@/components/workflo
 import { TablePagination } from '@/components/workflows/TablePagination'
 
 type SubNavView = 'all' | 'deployed' | 'drafts' | 'templates' | 'recent'
+
+interface AIOptimization {
+  id: string
+  type: 'pattern' | 'efficiency' | 'expansion'
+  title: string
+  description: string
+  impact: string
+  confidence: number
+  workflowId: string
+  workflowName: string
+  suggestedSteps: string[]
+  estimatedImprovement: string
+  complexity: 'low' | 'medium' | 'high'
+}
+
+const AI_OPTIMIZATIONS: AIOptimization[] = [
+  {
+    id: 'opt_001',
+    type: 'pattern',
+    title: 'Payment Success Pattern Detected',
+    description: 'Most successful payment workflows also update CRM and send Slack notifications.',
+    impact: 'Increase completion rate by 23%',
+    confidence: 87,
+    workflowId: '4',
+    workflowName: 'Payment Retry Handler',
+    suggestedSteps: ['Update CRM contact status', 'Send Slack success notification', 'Log payment analytics'],
+    estimatedImprovement: '+23% completion rate',
+    complexity: 'low'
+  },
+  {
+    id: 'opt_002',
+    type: 'efficiency',
+    title: 'Data Processing Bottleneck Identified',
+    description: 'Your data pipeline can be optimized with parallel processing.',
+    impact: 'Reduce processing time by 45%',
+    confidence: 92,
+    workflowId: '2',
+    workflowName: 'Data Processing Pipeline',
+    suggestedSteps: ['Add parallel data transformation', 'Implement batch processing', 'Cache intermediate results'],
+    estimatedImprovement: '-45% processing time',
+    complexity: 'medium'
+  },
+  {
+    id: 'opt_003',
+    type: 'expansion',
+    title: 'User Onboarding Expansion Opportunity',
+    description: 'Top-performing onboarding workflows include personalized welcome sequences.',
+    impact: 'Increase user activation by 34%',
+    confidence: 79,
+    workflowId: '1',
+    workflowName: 'User Onboarding',
+    suggestedSteps: ['Add personalized welcome email', 'Schedule follow-up sequence', 'Track activation metrics'],
+    estimatedImprovement: '+34% user activation',
+    complexity: 'low'
+  }
+]
 
 const MOCK_WORKFLOWS: Workflow[] = [
   {
@@ -129,6 +186,8 @@ export default function WorkflowsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [showIntelligence, setShowIntelligence] = useState(true)
+  const [optimizations] = useState<AIOptimization[]>(AI_OPTIMIZATIONS)
   const isLoading = false
   const searchInputRef = useRef<HTMLInputElement>(null)
 
@@ -229,6 +288,28 @@ export default function WorkflowsPage() {
     }
   }, [selectedIds.size])
 
+  const handleApplyOptimization = useCallback((optimizationId: string) => {
+    const optimization = optimizations.find(o => o.id === optimizationId)
+    if (!optimization) return
+    
+    // In real app, this would trigger workflow modification
+    console.log('Applying optimization:', optimization.title)
+  }, [optimizations])
+
+  const handleDismissOptimization = useCallback((optimizationId: string) => {
+    // In real app, this would dismiss the optimization
+    console.log('Dismissing optimization:', optimizationId)
+  }, [])
+
+  const getComplexityColor = (complexity: string) => {
+    switch (complexity) {
+      case 'low': return 'text-green-400 bg-green-400/10 border-green-400/30'
+      case 'medium': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'
+      case 'high': return 'text-red-400 bg-red-400/10 border-red-400/30'
+      default: return 'text-gray-400 bg-gray-400/10 border-gray-400/30'
+    }
+  }
+
   return (
     <div ref={containerRef} className="flex overflow-hidden -m-6" style={{ height: 'calc(100vh - 48px)' }}>
       {/* Left sub-nav panel */}
@@ -282,7 +363,78 @@ export default function WorkflowsPage() {
           onBulkDeploy={handleBulkDeploy}
           searchInputRef={searchInputRef}
           subNavView={subNavView}
+          showIntelligence={showIntelligence}
+          onIntelligenceToggle={() => setShowIntelligence(!showIntelligence)}
+          optimizationCount={optimizations.length}
         />
+
+        {/* AI Workflow Intelligence Panel */}
+        {showIntelligence && optimizations.length > 0 && (
+          <div className="mx-4 mt-4 p-4 rounded-lg bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-medium text-purple-300">Self-Building Workflow Intelligence</span>
+                <span className="text-xs text-gray-400">{optimizations.length} optimization{optimizations.length > 1 ? 's' : ''} available</span>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              {optimizations.slice(0, 2).map((optimization) => (
+                <div key={optimization.id} className="flex items-start gap-3 p-3 rounded bg-[#1A1F2E]/50 border border-gray-700/50">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Lightbulb className="w-4 h-4 text-yellow-400" />
+                      <span className="text-sm font-medium text-white">{optimization.title}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${getComplexityColor(optimization.complexity)}`}>
+                        {optimization.complexity}
+                      </span>
+                      <span className="text-xs text-gray-400">{optimization.confidence}% confidence</span>
+                    </div>
+                    
+                    <p className="text-xs text-gray-400 mb-2">{optimization.description}</p>
+                    
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-3 h-3 text-green-400" />
+                      <span className="text-xs text-green-400">{optimization.impact}</span>
+                      <span className="text-xs text-purple-400">{optimization.estimatedImprovement}</span>
+                    </div>
+                    
+                    <div className="mb-2">
+                      <p className="text-xs text-gray-500 mb-1">Suggested steps:</p>
+                      <div className="space-y-1">
+                        {optimization.suggestedSteps.slice(0, 3).map((step, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Zap className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                            <span className="text-xs text-gray-300">{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-400">Workflow: <span className="text-white">{optimization.workflowName}</span></p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleDismissOptimization(optimization.id)}
+                          className="px-2 py-1 text-xs text-gray-400 hover:text-white transition-colors"
+                        >
+                          Dismiss
+                        </button>
+                        <button
+                          onClick={() => handleApplyOptimization(optimization.id)}
+                          className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        >
+                          Apply Optimization
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           viewMode === 'list' ? <WorkflowListSkeleton /> : <WorkflowGridSkeleton />

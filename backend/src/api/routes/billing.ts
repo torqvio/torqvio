@@ -1,16 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { PricingService, type Subscription, type TenantPlan } from '../../billing/PricingService.js';
+import { AdaptivePricingService, type Subscription, type TenantPlan } from '../../billing/PricingService.js';
 import { authenticateToken, AuthenticatedRequest } from '../../utils/auth.js';
 import { logger } from '../../utils/logger.js';
 import { DatabaseConnection } from '../../database/connection.js';
 
 const router: Router = Router();
-const pricingService = new PricingService();
+const pricingService = new AdaptivePricingService();
 
 // GET /api/v1/billing/plans - Get all available plans
 router.get('/plans', async (req: Request, res: Response) => {
   try {
-    const plans = pricingService.getAllPlans();
+    const plans = pricingService.getAllAdaptivePlans();
     res.json({ plans });
   } catch (error: any) {
     logger.error('Failed to fetch plans:', error);
@@ -99,7 +99,7 @@ router.get('/features/:feature', authenticateToken, async (req: Request, res: Re
 // GET /api/v1/billing/addons - Get available add-ons
 router.get('/addons', async (req: Request, res: Response) => {
   try {
-    const addOns = pricingService.getAvailableAddOns();
+    const addOns = pricingService.getAvailableCapabilityLayers();
     res.json({ addOns });
   } catch (error: any) {
     logger.error('Failed to fetch add-ons:', error);
@@ -111,7 +111,7 @@ router.get('/addons', async (req: Request, res: Response) => {
 router.post('/calculate', authenticateToken, async (req: Request, res: Response) => {
   try {
     const tenantId = (req as any).user?.userId;
-    const billing = await pricingService.calculateMonthlyBilling(tenantId);
+    const billing = await pricingService.calculateHybridBilling(tenantId);
     res.json(billing);
   } catch (error: any) {
     logger.error('Failed to calculate billing:', error);
@@ -129,7 +129,7 @@ router.post('/addons/:addonId/subscribe', authenticateToken, async (req: Request
       return res.status(400).json({ error: 'Add-on ID is required' });
     }
 
-    await pricingService.subscribeToAddOn(tenantId, addonId);
+    await pricingService.subscribeToCapability(tenantId, addonId);
     res.json({ message: 'Successfully subscribed to add-on' });
   } catch (error: any) {
     logger.error('Failed to subscribe to add-on:', error);
@@ -147,7 +147,7 @@ router.post('/addons/:addonId/unsubscribe', authenticateToken, async (req: Reque
       return res.status(400).json({ error: 'Add-on ID is required' });
     }
 
-    await pricingService.unsubscribeFromAddOn(tenantId, addonId);
+    await pricingService.unsubscribeFromCapability(tenantId, addonId);
     res.json({ message: 'Successfully unsubscribed from add-on' });
   } catch (error: any) {
     logger.error('Failed to unsubscribe from add-on:', error);

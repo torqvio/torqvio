@@ -1,9 +1,18 @@
-import { Router } from 'express';
-import { workflow } from '../../../packages/core/dist/index.js';
-import { createDatabaseConnection } from '../../database/connection.js';
+import { Router, Request, Response } from 'express';
 import { logger } from '../../utils/logger.js';
+import { FlowRepository, FlowExecutionRepository } from '../../repositories/FlowRepository.js';
+import { WorkflowService } from '../../services/WorkflowService.js';
+import { 
+  ExecuteFlowRequest,
+  ApiResponse,
+  NotFoundError,
+  ValidationError
+} from '../../types/index.js';
 
 const router: Router = Router();
+const flowRepository = new FlowRepository();
+const executionRepository = new FlowExecutionRepository();
+const workflowService = new WorkflowService();
 
 /**
  * @swagger
@@ -60,61 +69,58 @@ router.post('/execute', async (req, res) => {
     const { workflowId, input } = req.body;
     
     if (!workflowId) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'workflowId is required'
-      });
+      throw new ValidationError('workflowId is required');
     }
 
-    const db = createDatabaseConnection();
+    // Use WorkflowService to trigger workflow
+    const execution = await workflowService.triggerWorkflow(workflowId, input || {});
     
-    // Find workflow by name (workflowId in docs refers to workflow name)
-    const flowResult = await db.query(
-      'SELECT * FROM flows WHERE name = $1',
-      [workflowId]
-    );
-    
-    if (flowResult.length === 0) {
-      return res.status(404).json({
-        error: 'Workflow not found',
-        message: `Workflow with name '${workflowId}' not found`
-      });
-    }
-    
-    const flow = flowResult[0];
-    
-    // Create execution record
-    const executionResult = await db.query(
-      `INSERT INTO flow_executions (flow_id, status, payload, created_at, updated_at)
-       VALUES ($1, 'pending', $2, NOW(), NOW())
-       RETURNING *`,
-      [flow.id, JSON.stringify(input || {})]
-    );
-    
-    const execution = executionResult[0];
-    
-    logger.info(`Workflow execution started: ${workflowId}`, { 
-      workflowId,
-      executionId: execution.id 
-    });
-    
-    // Execute the workflow asynchronously
-    executeWorkflowAsync(flow, execution, input || {}).catch(error => {
-      logger.error('Async workflow execution failed:', error);
-    });
-    
-    res.status(202).json({
-      id: execution.id,
-      workflowId,
-      status: 'pending',
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        id: execution.id,
+        workflowId,
+        status: 'pending',
+        execution
+      },
       message: 'Workflow execution started'
-    });
+    };
+    
+    res.status(202).json(response);
     
   } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
+    }
+    
+    if (error instanceof NotFoundError) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'WORKFLOW_NOT_FOUND',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
+    }
+    
     logger.error('Failed to execute workflow:', error);
     res.status(500).json({
-      error: 'Failed to execute workflow',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'EXECUTE_WORKFLOW_ERROR',
+        message: 'Failed to execute workflow',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
@@ -123,84 +129,50 @@ router.post('/execute', async (req, res) => {
 router.get('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
-    const db = createDatabaseConnection();
+
+    const execution = await executionRepository.findById(id);
     
-    const result = await db.query(
-      'SELECT * FROM flow_executions WHERE id = $1',
-      [id]
-    );
-    
-    if (result.length === 0) {
-      return res.status(404).json({
-        error: 'Execution not found',
-        message: `Execution with id ${id} not found`
-      });
+    if (!execution) {
+      throw new NotFoundError('Execution', id);
     }
     
-    const execution = result[0];
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        id: execution.id,
+        status: execution.status,
+        results: execution.results,
+        error: execution.error,
+        created_at: execution.createdAt,
+        completed_at: execution.completedAt
+      }
+    };
     
-    res.json({
-      id: execution.id,
-      status: execution.status,
-      results: execution.results ? JSON.parse(execution.results) : null,
-      error: execution.error,
-      created_at: execution.created_at,
-      completed_at: execution.completed_at
-    });
+    res.json(response);
     
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'EXECUTION_NOT_FOUND',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
+    }
+    
     logger.error('Failed to get execution status:', error);
     res.status(500).json({
-      error: 'Failed to get execution status',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'GET_EXECUTION_STATUS_ERROR',
+        message: 'Failed to get execution status',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
-
-// Async workflow execution function
-async function executeWorkflowAsync(flow: any, execution: any, input: any) {
-  const db = createDatabaseConnection();
-  
-  try {
-    // Update execution status to running
-    await db.query(
-      'UPDATE flow_executions SET status = $1, updated_at = NOW() WHERE id = $2',
-      ['running', execution.id]
-    );
-    
-    // Import and execute the workflow
-    const workflowDefinition = JSON.parse(flow.definition);
-    
-    // Create workflow instance
-    const workflowInstance = workflow(flow.name, workflowDefinition);
-    
-    // Execute the workflow
-    const result = await workflowInstance.execute(input);
-    
-    // Update execution with results
-    await db.query(
-      `UPDATE flow_executions 
-       SET status = $1, results = $2, completed_at = NOW(), updated_at = NOW() 
-       WHERE id = $3`,
-      ['completed', JSON.stringify(result.results), execution.id]
-    );
-    
-    logger.info(`Workflow execution completed: ${execution.id}`, {
-      executionId: execution.id,
-      resultsCount: Object.keys(result.results).length
-    });
-    
-  } catch (error) {
-    // Update execution with error
-    await db.query(
-      `UPDATE flow_executions 
-       SET status = $1, error = $2, completed_at = NOW(), updated_at = NOW() 
-       WHERE id = $3`,
-      ['failed', (error as Error).message, execution.id]
-    );
-    
-    logger.error(`Workflow execution failed: ${execution.id}`, error);
-  }
-}
 
 export default router;
