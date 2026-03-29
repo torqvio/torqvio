@@ -11,7 +11,6 @@ jobs:
     outputs:
       backend: ${{ steps.changes.outputs.backend }}
       frontend: ${{ steps.changes.outputs.frontend }}
-      landingpage: ${{ steps.changes.outputs.landingpage }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,8 +24,6 @@ jobs:
               - 'backend/**'
             frontend:
               - 'frontend/**'
-            landingpage:
-              - 'landinpage/**'
 
   deploy-backend:
     needs: detect-changes
@@ -117,51 +114,9 @@ jobs:
           # Automated deployment via Docker with password authentication:
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd frontend && docker-compose down && docker-compose up -d --build"
           
-  deploy-landingpage:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.landingpage == 'true'
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          
-      - name: Install dependencies
-        run: |
-          cd landinpage
-          npm install
-          
-      - name: Run tests
-        run: |
-          cd landinpage
-          npm test || true
-          
-      - name: Lint
-        run: |
-          cd landinpage
-          npm run lint || true
-          
-      - name: Build
-        run: |
-          cd landinpage
-          npm run build
-          
-      - name: Install sshpass
-        run: sudo apt-get update && sudo apt-get install -y sshpass
-          
-      - name: Deploy to production
-        run: |
-          echo "Deploy landing page to production VPS"
-          # Use password authentication with sshpass:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
-
   deploy-all:
-    needs: [detect-changes, deploy-backend, deploy-frontend, deploy-landingpage]
-    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success' || needs.deploy-landingpage.result == 'success')
+    needs: [detect-changes, deploy-backend, deploy-frontend]
+    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
     runs-on: ubuntu-latest
     
     steps:
@@ -170,9 +125,7 @@ jobs:
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Backend: ${{ needs.deploy-backend.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend: ${{ needs.deploy-frontend.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Landing Page: ${{ needs.deploy-landingpage.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Changes detected in:" >> $GITHUB_STEP_SUMMARY
           echo "- Backend: ${{ needs.detect-changes.outputs.backend }}" >> $GITHUB_STEP_SUMMARY
           echo "- Frontend: ${{ needs.detect-changes.outputs.frontend }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Landing Page: ${{ needs.detect-changes.outputs.landingpage }}" >> $GITHUB_STEP_SUMMARY

@@ -21,22 +21,22 @@ export class EventSubscriptionModel {
   }
 
   async findById(id: string): Promise<EventSubscription | null> {
-    const query = 'SELECT * FROM event_subscriptions WHERE id = $1';
+    const query = 'SELECT id, flow_id, event_type, filter_config, active, created_at, updated_at FROM event_subscriptions WHERE id = $1';
     return await this.db.queryOne<EventSubscription>(query, [id]);
   }
 
   async findByFlowId(flowId: string): Promise<EventSubscription[]> {
-    const query = 'SELECT * FROM event_subscriptions WHERE flow_id = $1 ORDER BY created_at DESC';
+    const query = 'SELECT id, flow_id, event_type, filter_config, active, created_at, updated_at FROM event_subscriptions WHERE flow_id = $1 ORDER BY created_at DESC LIMIT 100';
     return await this.db.query<EventSubscription>(query, [flowId]);
   }
 
   async findByEventType(eventType: string): Promise<EventSubscription[]> {
-    const query = 'SELECT * FROM event_subscriptions WHERE event_type = $1 ORDER BY created_at DESC';
+    const query = 'SELECT id, flow_id, event_type, filter_config, active, created_at, updated_at FROM event_subscriptions WHERE event_type = $1 ORDER BY created_at DESC LIMIT 100';
     return await this.db.query<EventSubscription>(query, [eventType]);
   }
 
   async findActive(): Promise<EventSubscription[]> {
-    const query = 'SELECT * FROM event_subscriptions WHERE active = true ORDER BY created_at DESC';
+    const query = 'SELECT id, flow_id, event_type, filter_config, active, created_at, updated_at FROM event_subscriptions WHERE active = true ORDER BY created_at DESC LIMIT 1000';
     return await this.db.query<EventSubscription>(query);
   }
 
@@ -71,7 +71,7 @@ export class EventSubscriptionModel {
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const query = `SELECT * FROM event_subscriptions ${whereClause} ORDER BY created_at DESC`;
+    const query = `SELECT id, flow_id, event_type, filter_config, active, created_at, updated_at FROM event_subscriptions ${whereClause} ORDER BY created_at DESC LIMIT 1000`;
 
     return await this.db.query<EventSubscription>(query, values);
   }

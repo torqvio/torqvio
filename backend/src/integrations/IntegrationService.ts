@@ -61,7 +61,7 @@ export class IntegrationService {
     }
 
     // Validate credentials
-    const isValid = await connector.validateCredentials(integrationConfig.config);
+    const isValid = await connector.validateCredentials(integrationConfig.config as any);
     if (!isValid) {
       throw new Error('Invalid integration credentials');
     }
@@ -70,9 +70,10 @@ export class IntegrationService {
     let webhookConfig: WebhookConfig | null = null;
     if (integrationConfig.webhookUrl) {
       webhookConfig = await connector.setupWebhooks({
+        type: integrationConfig.type,
         ...integrationConfig.config,
         webhookUrl: integrationConfig.webhookUrl
-      });
+      } as any);
     }
 
     // Create integration record
@@ -99,7 +100,8 @@ export class IntegrationService {
     try {
       // Get integration
       const integration = await this.db.query(`
-        SELECT * FROM integrations WHERE id = $1 AND status = 'active'
+        SELECT id, name, type, config, status, project_id, created_at, updated_at
+        FROM integrations WHERE id = $1 AND status = 'active'
       `, [event.integrationId]);
 
       if (integration.length === 0) {
@@ -164,21 +166,25 @@ export class IntegrationService {
   }
 
   async getEvents(integrationId: string, limit: number = 50): Promise<any[]> {
+    const limitedCount = Math.min(limit, 100); // Max 100 for safety
     const events = await this.db.query(`
-      SELECT * FROM integration_events 
+      SELECT id, integration_id, event_type, status, payload, error, created_at, updated_at
+      FROM integration_events 
       WHERE integration_id = $1 
       ORDER BY created_at DESC 
       LIMIT $2
-    `, [integrationId, limit]);
+    `, [integrationId, limitedCount]);
 
     return events;
   }
 
   async getIntegrations(projectId: string): Promise<any[]> {
     const integrations = await this.db.query(`
-      SELECT * FROM integrations 
+      SELECT id, name, type, config, status, project_id, created_at, updated_at
+      FROM integrations 
       WHERE project_id = $1 
       ORDER BY created_at DESC
+      LIMIT 100
     `, [projectId]);
 
     return integrations;

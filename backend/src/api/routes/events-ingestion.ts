@@ -21,7 +21,7 @@ export function createEventsRouter(db: DatabaseConnection, eventBus: EventBus): 
         return res.status(200).json({
           success: true,
           message: 'Event already processed',
-          eventId: existingEvent.id
+          eventId: (existingEvent as any).id
         });
       }
 
@@ -38,7 +38,7 @@ export function createEventsRouter(db: DatabaseConnection, eventBus: EventBus): 
       // Store event
       const storedEvent = await eventModel.create({
         type: eventToStore.type,
-        payload: eventToStore.data || eventToStore.payload,
+        payload: eventToStore.data || (eventToStore as any).payload,
         source: eventToStore.source,
         processed: false
       });

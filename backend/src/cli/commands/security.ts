@@ -55,11 +55,11 @@ securityCommands
         console.log(`  algorithm: ${security.encryption.algorithm}`);
         console.log(`  key_derivation: ${security.encryption.key_derivation}`);
         console.log('access_control:');
-        console.log(`  ip_whitelist: [${security.access_control.ip_whitelist.join(', ')}]`);
-        console.log(`  ip_blacklist: [${security.access_control.ip_blacklist.join(', ')}]`);
+        console.log(`  ip_whitelist: [${security.access_control?.ip_whitelist?.join(', ') || ''}]`);
+        console.log(`  ip_blacklist: [${security.access_control?.ip_blacklist?.join(', ') || ''}]`);
         console.log('  rate_limiting:');
-        console.log(`    enabled: ${security.access_control.rate_limiting.enabled}`);
-        console.log(`    requests_per_minute: ${security.access_control.rate_limiting.requests_per_minute}`);
+        console.log(`    enabled: ${security.access_control?.rate_limiting?.enabled ?? false}`);
+        console.log(`    requests_per_minute: ${security.access_control?.rate_limiting?.requests_per_minute ?? 60}`);
       } else {
         console.log(chalk.white('SSL/TLS Settings:'));
         console.log(chalk.gray(`  Enabled: ${security.ssl.enabled ? 'Yes' : 'No'}`));
@@ -84,20 +84,20 @@ securityCommands
         console.log();
         
         console.log(chalk.white('Access Control:'));
-        console.log(chalk.gray(`  IP Whitelist: ${security.access_control.ip_whitelist.length || 0} entries`));
-        if (security.access_control.ip_whitelist.length > 0) {
+        console.log(chalk.gray(`  IP Whitelist: ${security.access_control?.ip_whitelist?.length || 0} entries`));
+        if (security.access_control?.ip_whitelist?.length) {
           security.access_control.ip_whitelist.forEach(ip => {
             console.log(chalk.gray(`    - ${ip}`));
           });
         }
-        console.log(chalk.gray(`  IP Blacklist: ${security.access_control.ip_blacklist.length || 0} entries`));
-        if (security.access_control.ip_blacklist.length > 0) {
+        console.log(chalk.gray(`  IP Blacklist: ${security.access_control?.ip_blacklist?.length || 0} entries`));
+        if (security.access_control?.ip_blacklist?.length) {
           security.access_control.ip_blacklist.forEach(ip => {
             console.log(chalk.gray(`    - ${ip}`));
           });
         }
-        console.log(chalk.gray(`  Rate Limiting: ${security.access_control.rate_limiting.enabled ? 'Enabled' : 'Disabled'}`));
-        if (security.access_control.rate_limiting.enabled) {
+        console.log(chalk.gray(`  Rate Limiting: ${security.access_control?.rate_limiting?.enabled ? 'Enabled' : 'Disabled'}`));
+        if (security.access_control?.rate_limiting?.enabled) {
           console.log(chalk.gray(`    Requests/min: ${security.access_control.rate_limiting.requests_per_minute}`));
         }
       }
@@ -199,7 +199,7 @@ securityCommands
       
       if (options.rotationDays) {
         const days = parseInt(options.rotationDays);
-        if (!config.encryption.secrets) {
+        if (!config.encryption?.secrets) {
           setNestedProperty(config, 'encryption.secrets', {});
         }
         setNestedProperty(config, 'encryption.secrets.key_rotation_days', days);
@@ -207,7 +207,7 @@ securityCommands
       }
       
       const atRest = options.atRest === 'true';
-      if (!config.encryption.at_rest) {
+      if (!config.encryption?.at_rest) {
         setNestedProperty(config, 'encryption.at_rest', {});
       }
       setNestedProperty(config, 'encryption.at_rest.enabled', atRest);
@@ -254,7 +254,7 @@ securityCommands
       }
       
       // Initialize rate limiting if it doesn't exist
-      if (!config.access_control.rate_limiting) {
+      if (!config.access_control?.rate_limiting) {
         setNestedProperty(config, 'access_control.rate_limiting', {
           enabled: false,
           requests_per_minute: 60
@@ -263,18 +263,20 @@ securityCommands
       
       // Manage IP whitelist
       if (options.whitelistAdd) {
-        if (!config.access_control.ip_whitelist) {
-          config.access_control.ip_whitelist = [];
+        const accessControl = config.access_control;
+        if (!accessControl?.ip_whitelist) {
+          setNestedProperty(config, 'access_control.ip_whitelist', []);
         }
-        config.access_control.ip_whitelist.push(options.whitelistAdd);
+        (config.access_control as any).ip_whitelist.push(options.whitelistAdd);
         console.log(chalk.green(`✅ Added ${options.whitelistAdd} to whitelist`));
       }
       
       if (options.whitelistRemove) {
-        if (config.access_control.ip_whitelist) {
-          const index = config.access_control.ip_whitelist.indexOf(options.whitelistRemove);
+        const accessControl = config.access_control;
+        if (accessControl?.ip_whitelist) {
+          const index = accessControl.ip_whitelist.indexOf(options.whitelistRemove);
           if (index > -1) {
-            config.access_control.ip_whitelist.splice(index, 1);
+            accessControl.ip_whitelist.splice(index, 1);
             console.log(chalk.green(`✅ Removed ${options.whitelistRemove} from whitelist`));
           } else {
             console.log(chalk.yellow(`⚠️ IP ${options.whitelistRemove} not in whitelist`));
@@ -284,18 +286,20 @@ securityCommands
       
       // Manage IP blacklist
       if (options.blacklistAdd) {
-        if (!config.access_control.ip_blacklist) {
-          config.access_control.ip_blacklist = [];
+        const accessControl = config.access_control;
+        if (!accessControl?.ip_blacklist) {
+          setNestedProperty(config, 'access_control.ip_blacklist', []);
         }
-        config.access_control.ip_blacklist.push(options.blacklistAdd);
+        (config.access_control as any).ip_blacklist.push(options.blacklistAdd);
         console.log(chalk.green(`✅ Added ${options.blacklistAdd} to blacklist`));
       }
       
       if (options.blacklistRemove) {
-        if (config.access_control.ip_blacklist) {
-          const index = config.access_control.ip_blacklist.indexOf(options.blacklistRemove);
+        const accessControl = config.access_control;
+        if (accessControl?.ip_blacklist) {
+          const index = accessControl.ip_blacklist.indexOf(options.blacklistRemove);
           if (index > -1) {
-            config.access_control.ip_blacklist.splice(index, 1);
+            accessControl.ip_blacklist.splice(index, 1);
             console.log(chalk.green(`✅ Removed ${options.blacklistRemove} from blacklist`));
           } else {
             console.log(chalk.yellow(`⚠️ IP ${options.blacklistRemove} not in blacklist`));

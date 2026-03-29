@@ -1,11 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ExecutionEngine } from './ExecutionEngine.js';
-import { createDatabaseConnection } from '../database/connection.js';
+import { DatabaseConnection } from '../database/connection.js';
 import { FlowDefinition } from '../types/index.js';
 
 export class WorkflowEngine {
   private executionEngine: ExecutionEngine;
-  private db = createDatabaseConnection();
+  private db = DatabaseConnection.getInstance();
 
   constructor() {
     this.executionEngine = new ExecutionEngine();
@@ -17,9 +17,9 @@ export class WorkflowEngine {
   async trigger(workflowName: string, payload: Record<string, any> = {}): Promise<{ executionId: string; status: string }> {
     console.log(`🚀 Triggering workflow: ${workflowName}`);
     
-    // Find workflow by name
+    // Find workflow by name with specific columns
     const flowResult = await this.db.query(
-      'SELECT * FROM flows WHERE name = $1',
+      'SELECT id, name, definition, project_id, status, created_at, updated_at, tags, version FROM flows WHERE name = $1 LIMIT 1',
       [workflowName]
     );
     
@@ -44,7 +44,7 @@ export class WorkflowEngine {
    */
   async getExecutionStatus(executionId: string): Promise<any> {
     const result = await this.db.query(
-      'SELECT * FROM flow_executions WHERE id = $1',
+      'SELECT id, flow_id, status, payload, context, results, error, created_at, updated_at, started_at, completed_at, next_run_at, triggered_by, trigger_metadata FROM flow_executions WHERE id = $1',
       [executionId]
     );
     

@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { Github, ArrowLeft } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 interface PublicNavbarProps {
   currentPage: 'home' | 'features' | 'docs' | 'pricing'
@@ -12,6 +13,29 @@ interface PublicNavbarProps {
 
 export default function PublicNavbar({ currentPage, onLogin, onSignup }: PublicNavbarProps) {
   const router = useRouter()
+  const [githubStars, setGithubStars] = useState<number | null>(null)
+
+  // Fetch real-time GitHub stats from backend cache
+  useEffect(() => {
+    const fetchGithubStats = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/github-stats`)
+        if (response.ok) {
+          const data = await response.json()
+          setGithubStars(data.stars)
+        }
+      } catch (error) {
+        console.error('Failed to fetch GitHub stats:', error)
+        // Fallback to 0 if API fails
+        setGithubStars(0)
+      }
+    }
+
+    fetchGithubStats()
+    // Refresh stats every 5 minutes (backend will handle caching)
+    const interval = setInterval(fetchGithubStats, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleLogin = onLogin ?? (() => router.push('/login'))
   const handleSignup = onSignup ?? (() => router.push('/login?tab=register'))
@@ -76,7 +100,11 @@ export default function PublicNavbar({ currentPage, onLogin, onSignup }: PublicN
           <span className="truncate">
             <span className="flex items-center gap-1">
               <Github className="w-4 h-4" />
-              99.3K
+              {githubStars === null ? (
+                <span className="animate-pulse">...</span>
+              ) : (
+                githubStars
+              )}
             </span>
           </span>
         </motion.a>

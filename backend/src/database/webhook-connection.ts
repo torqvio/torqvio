@@ -1,19 +1,11 @@
-import { createDatabaseConnection } from './connection.js';
+import { DatabaseConnection } from './connection.js';
 
 // Optimized singleton database connection for webhook operations
-let webhookDbConnection: any = null;
+let webhookDbConnection: DatabaseConnection | null = null;
 
-export function getWebhookDbConnection() {
+export function getWebhookDbConnection(): DatabaseConnection {
   if (!webhookDbConnection) {
-    webhookDbConnection = createDatabaseConnection();
-    
-    // Optimize pool for high concurrency
-    if (webhookDbConnection.pool) {
-      webhookDbConnection.pool.max = 50;  // Increase max connections
-      webhookDbConnection.pool.min = 10;  // Higher min for sustained load
-      webhookDbConnection.pool.idleTimeoutMillis = 1000;  // Faster cleanup
-      webhookDbConnection.pool.connectionTimeoutMillis = 1000;  // Faster timeout
-    }
+    webhookDbConnection = DatabaseConnection.getInstance();
   }
   return webhookDbConnection;
 }

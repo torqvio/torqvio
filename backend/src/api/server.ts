@@ -1,8 +1,8 @@
 import express from 'express';
 import { createServer as createHttpServer } from 'http';
 import cors from 'cors';
-import { Router, Request, Response } from 'express';
 import helmet from 'helmet';
+import { Router, Request, Response } from 'express';
 import { createDatabaseConnection } from '../database/connection.js';
 import { EventBus } from '../events/EventBus.js';
 import { ExecutionEngine } from '../engine/ExecutionEngine.js';
@@ -25,16 +25,24 @@ import { createEventsRouter } from './routes/events-ingestion.js';
 import { initializeSocketEvents, EventBroadcaster } from './routes/events-socket.js';
 import eventsStreamRouter from './routes/events-stream.js';
 import apiKeysRoutes from './routes/api-keys.js';
+import githubStatsRoutes from './routes/github-stats.js';
 import { createApiRateLimiter, createStrictRateLimiter } from '../middleware/rateLimiter.js';
 import { connectionPoolManager } from '../middleware/connectionPool.js';
 import { logger } from '../utils/logger.js';
 import { requestIdMiddleware, errorHandler } from '../utils/errorHandler.js';
 import { swaggerSpec, swaggerUi } from './swagger.js';
 
-export function createApiServer() {
+interface ApiServerResult {
+  app: express.Express;
+  httpServer: any;
+  PORT: number;
+  eventBroadcaster: EventBroadcaster;
+}
+
+export function createApiServer(): ApiServerResult {
   const app = express();
   const httpServer = createHttpServer(app);
-  const PORT = process.env.API_PORT || 8913;
+  const PORT = Number(process.env.API_PORT) || 8913;
   const db = createDatabaseConnection();
   
   // Initialize Trust Machine components
@@ -124,7 +132,8 @@ export function createApiServer() {
   app.use('/api/v1/billing', billingRoutes);
   app.use('/api/v1/flows', flowRoutes);
   app.use('/api/v1/executions', executionRoutes);
-  app.use('/api/v1/webhooks', webhookRateLimit.middleware);
+  app.use('/api/v1/github-stats', githubStatsRoutes);
+    app.use('/api/v1/webhooks', webhookRateLimit.middleware);
   app.use('/api/v1/webhooks', webhookRoutes);
   // Legacy path for documentation compatibility
   app.use('/api/webhooks', webhookRateLimit.middleware);

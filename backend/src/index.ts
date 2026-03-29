@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { appConfig } from './config/index.js';
-import { createDatabaseConnection } from './database/connection.js';
+import { DatabaseConnection } from './database/connection.js';
 import { runMigrations } from './database/migrate.js';
 import { createApiServer } from './api/server.js';
 import { logger } from './utils/logger.js';
@@ -24,10 +24,13 @@ async function main() {
   try {
     // Initialize database
     logger.info('📊 Initializing database...');
-    // await runMigrations();
+    
+    // Initialize database connection first
+    DatabaseConnection.getInstance();
+    // await runMigrations(); // Temporarily commented out - schema already exists
     
     // Test database connection
-    const db = createDatabaseConnection();
+    const db = DatabaseConnection.getInstance();
     const isHealthy = await db.healthCheck();
     
     if (!isHealthy) {

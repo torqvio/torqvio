@@ -59,12 +59,12 @@ monitoringCommands
         console.log(`  backend: ${monitoring.cache.backend}`);
         console.log('rate_limiting:');
         console.log(`  enabled: ${monitoring.rate_limiting.enabled}`);
-        console.log(`  limits: ${Object.keys(monitoring.rate_limiting.limits).length} configured limits`);
+        console.log(`  limits: ${Object.keys(monitoring.rate_limiting?.limits || {}).length} configured limits`);
       } else {
         console.log(chalk.white('Monitoring Settings:'));
         console.log(chalk.gray(`  Enabled: ${monitoring.monitoring.enabled ? 'Yes' : 'No'}`));
         console.log(chalk.gray(`  Metrics Endpoint: ${monitoring.monitoring.metrics_endpoint}`));
-        console.log(chalk.gray(`  Trace Sampling: ${(monitoring.monitoring.trace_sampling * 100).toFixed(1)}%`));
+        console.log(chalk.gray(`  Trace Sampling: ${((monitoring.monitoring?.trace_sampling ?? 0) * 100).toFixed(1)}%`));
         console.log(chalk.gray(`  Collection Interval: ${monitoring.monitoring.interval}s`));
         console.log();
         
@@ -80,8 +80,8 @@ monitoringCommands
         
         console.log(chalk.white('Rate Limiting:'));
         console.log(chalk.gray(`  Enabled: ${monitoring.rate_limiting.enabled ? 'Yes' : 'No'}`));
-        console.log(chalk.gray(`  Configured Limits: ${Object.keys(monitoring.rate_limiting.limits).length}`));
-        Object.entries(monitoring.rate_limiting.limits).forEach(([key, limit]) => {
+        console.log(chalk.gray(`  Configured Limits: ${Object.keys(monitoring.rate_limiting?.limits || {}).length}`));
+        Object.entries(monitoring.rate_limiting?.limits || {}).forEach(([key, limit]) => {
           console.log(chalk.gray(`    ${key}: ${limit.requests_per_minute}/min`));
         });
       }
@@ -211,7 +211,7 @@ monitoringCommands
       
       // Configure cache strategies
       if (options.strategy) {
-        if (!config.cache.strategies) {
+        if (!config.cache?.strategies) {
           setNestedProperty(config, 'cache.strategies', {});
         }
         
@@ -272,8 +272,8 @@ monitoringCommands
       
       // Add or update rate limit rule
       if (options.addLimit) {
-        if (!config.rate_limiting.limits) {
-          config.rate_limiting.limits = {};
+        if (!config.rate_limiting?.limits) {
+          config.rate_limiting!.limits = {};
         }
         
         const limit: any = {};
@@ -298,8 +298,8 @@ monitoringCommands
       
       // Remove rate limit rule
       if (options.removeLimit) {
-        if (config.rate_limiting.limits && config.rate_limiting.limits[options.removeLimit]) {
-          delete config.rate_limiting.limits[options.removeLimit];
+        if (config.rate_limiting?.limits && config.rate_limiting.limits[options.removeLimit]) {
+          delete config.rate_limiting!.limits[options.removeLimit];
           console.log(chalk.green(`✅ Rate limit '${options.removeLimit}' removed`));
         } else {
           console.log(chalk.yellow(`⚠️ Rate limit '${options.removeLimit}' not found`));

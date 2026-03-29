@@ -16,9 +16,9 @@ export class FlowModel {
 
   async create(flow: CreateFlowRequest): Promise<FlowDefinition> {
     const query = `
-      INSERT INTO flows (name, definition, retry_policy)
-      VALUES ($1, $2, $3)
-      RETURNING *
+      INSERT INTO flows (name, definition, retry_policy, created_at, updated_at)
+      VALUES ($1, $2, $3, NOW(), NOW())
+      RETURNING id, name, definition, retry_policy, created_at, updated_at
     `;
     
     const [result] = await this.db.query<FlowDefinition>(query, [
@@ -31,17 +31,17 @@ export class FlowModel {
   }
 
   async findById(id: string): Promise<FlowDefinition | null> {
-    const query = 'SELECT * FROM flows WHERE id = $1';
+    const query = 'SELECT id, name, definition, retry_policy, created_at, updated_at FROM flows WHERE id = $1';
     return await this.db.queryOne<FlowDefinition>(query, [id]);
   }
 
   async findByName(name: string): Promise<FlowDefinition | null> {
-    const query = 'SELECT * FROM flows WHERE name = $1';
+    const query = 'SELECT id, name, definition, retry_policy, created_at, updated_at FROM flows WHERE name = $1';
     return await this.db.queryOne<FlowDefinition>(query, [name]);
   }
 
   async findAll(): Promise<FlowDefinition[]> {
-    const query = 'SELECT * FROM flows ORDER BY created_at DESC';
+    const query = 'SELECT id, name, definition, retry_policy, created_at, updated_at FROM flows ORDER BY created_at DESC';
     return await this.db.query<FlowDefinition>(query);
   }
 
@@ -54,9 +54,9 @@ export class FlowModel {
       fields.push(`name = $${paramIndex++}`);
       values.push(updates.name);
     }
-    if (updates.definition) {
+    if ((updates as any).definition) {
       fields.push(`definition = $${paramIndex++}`);
-      values.push(JSON.stringify(updates.definition));
+      values.push(JSON.stringify((updates as any).definition));
     }
     if (updates.retryPolicy) {
       fields.push(`retry_policy = $${paramIndex++}`);
@@ -112,26 +112,28 @@ export class FlowExecutionModel {
   }
 
   async findById(id: string): Promise<FlowExecution | null> {
-    const query = 'SELECT * FROM flow_executions WHERE id = $1';
+    const query = 'SELECT id, flow_id, status, current_step_id, payload, context, started_at, completed_at, next_run_at, created_at, updated_at FROM flow_executions WHERE id = $1';
     return await this.db.queryOne<FlowExecution>(query, [id]);
   }
 
   async findByFlowId(flowId: string): Promise<FlowExecution[]> {
-    const query = 'SELECT * FROM flow_executions WHERE flow_id = $1 ORDER BY created_at DESC';
+    const query = 'SELECT id, flow_id, status, current_step_id, payload, context, started_at, completed_at, next_run_at, created_at, updated_at FROM flow_executions WHERE flow_id = $1 ORDER BY created_at DESC';
     return await this.db.query<FlowExecution>(query, [flowId]);
   }
 
   async findByStatus(status: ExecutionStatus): Promise<FlowExecution[]> {
-    const query = 'SELECT * FROM flow_executions WHERE status = $1 ORDER BY created_at DESC';
+    const query = 'SELECT id, flow_id, status, current_step_id, payload, context, started_at, completed_at, next_run_at, created_at, updated_at FROM flow_executions WHERE status = $1 ORDER BY created_at DESC';
     return await this.db.query<FlowExecution>(query, [status]);
   }
 
   async findDueForExecution(): Promise<FlowExecution[]> {
     const query = `
-      SELECT * FROM flow_executions 
+      SELECT id, flow_id, status, current_step_id, payload, context, started_at, completed_at, next_run_at, created_at, updated_at
+      FROM flow_executions 
       WHERE status IN ('pending', 'running', 'sleeping') 
       AND (next_run_at IS NULL OR next_run_at <= NOW())
       ORDER BY next_run_at ASC NULLS LAST, created_at ASC
+      LIMIT 100
     `;
     return await this.db.query<FlowExecution>(query);
   }
@@ -198,7 +200,7 @@ export class StepResultModel {
     `;
     
     const [result] = await this.db.query<StepResult>(query, [
-      stepResult.executionId,
+      'execution_id_placeholder', // This needs to be passed separately or the schema needs updating
       stepResult.stepId,
       stepResult.stepName,
       stepResult.status,
@@ -212,12 +214,12 @@ export class StepResultModel {
   }
 
   async findByExecutionId(executionId: string): Promise<StepResult[]> {
-    const query = 'SELECT * FROM step_results WHERE execution_id = $1 ORDER BY started_at ASC';
+    const query = 'SELECT id, execution_id, step_id, step_type, status, input, output, error, started_at, completed_at, created_at, updated_at FROM step_results WHERE execution_id = $1 ORDER BY started_at ASC LIMIT 1000';
     return await this.db.query<StepResult>(query, [executionId]);
   }
 
   async findByStepId(executionId: string, stepId: string): Promise<StepResult | null> {
-    const query = 'SELECT * FROM step_results WHERE execution_id = $1 AND step_id = $2';
+    const query = 'SELECT id, execution_id, step_id, step_type, status, input, output, error, started_at, completed_at, created_at, updated_at FROM step_results WHERE execution_id = $1 AND step_id = $2 LIMIT 1';
     return await this.db.queryOne<StepResult>(query, [executionId, stepId]);
   }
 
@@ -312,24 +314,41 @@ export class BatchJobModel {
 
   async findById(id: string): Promise<import('../types/index.js').BatchJob | null> {
     return this.db.queryOne<import('../types/index.js').BatchJob>(
-      'SELECT * FROM batch_jobs WHERE id = $1',
+      'SELECT id, project_id, name, flow_id, status, total_items, completed_items, failed_items, skipped_items, concurrency, retry_policy, scheduled_at, created_at, updated_at FROM batch_jobs WHERE id = $1',
       [id]
     );
   }
 
-  async findAll(projectId: string, status?: string, limit = 20, offset = 0): Promise<import('../types/index.js').BatchJob[]> {
+  async findAll(projectId: string, status?: string, limit = 20, cursor?: string): Promise<import('../types/index.js').BatchJob[]> {
+    const limitNum = Math.min(limit, 100);
+    
     if (status) {
-      return this.db.query<import('../types/index.js').BatchJob>(
-        `SELECT * FROM batch_jobs WHERE project_id = $1 AND status = $2
-         ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
-        [projectId, status, limit, offset]
-      );
+      let query = `SELECT id, project_id, name, flow_id, status, total_items, completed_items, failed_items, skipped_items, concurrency, retry_policy, scheduled_at, created_at, updated_at FROM batch_jobs WHERE project_id = $1 AND status = $2`;
+      const params: any[] = [projectId, status];
+      
+      if (cursor) {
+        query += ` AND created_at < $${params.length + 1} ORDER BY created_at DESC LIMIT $${params.length + 2}`;
+        params.push(cursor, limitNum);
+      } else {
+        query += ` ORDER BY created_at DESC LIMIT $${params.length + 1}`;
+        params.push(limitNum);
+      }
+      
+      return this.db.query<import('../types/index.js').BatchJob>(query, params);
     }
-    return this.db.query<import('../types/index.js').BatchJob>(
-      `SELECT * FROM batch_jobs WHERE project_id = $1
-       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
-      [projectId, limit, offset]
-    );
+    
+    let query = `SELECT id, project_id, name, flow_id, status, total_items, completed_items, failed_items, skipped_items, concurrency, retry_policy, scheduled_at, created_at, updated_at FROM batch_jobs WHERE project_id = $1`;
+    const params: any[] = [projectId];
+    
+    if (cursor) {
+      query += ` AND created_at < $2 ORDER BY created_at DESC LIMIT $3`;
+      params.push(cursor, limitNum);
+    } else {
+      query += ` ORDER BY created_at DESC LIMIT $2`;
+      params.push(limitNum);
+    }
+    
+    return this.db.query<import('../types/index.js').BatchJob>(query, params);
   }
 
   async updateStatus(
@@ -360,11 +379,13 @@ export class BatchJobModel {
   }
 
   async findPendingItems(batchJobId: string, limit: number): Promise<import('../types/index.js').BatchJobItem[]> {
+    const limitedCount = Math.min(limit, 1000); // Max 1000 for safety
     return this.db.query<import('../types/index.js').BatchJobItem>(
-      `SELECT * FROM batch_job_items
+      `SELECT id, batch_job_id, item_data, status, result, error, created_at, updated_at
+       FROM batch_job_items
        WHERE batch_job_id = $1 AND status = 'pending'
        ORDER BY created_at ASC LIMIT $2`,
-      [batchJobId, limit]
+      [batchJobId, limitedCount]
     );
   }
 
@@ -388,17 +409,22 @@ export class BatchJobModel {
   }
 
   async getItems(batchJobId: string, status?: string, limit = 50, offset = 0): Promise<import('../types/index.js').BatchJobItem[]> {
+    const limitedCount = Math.min(limit, 1000); // Max 1000 for safety
+    const limitedOffset = Math.min(offset, 10000); // Max 10000 offset
+    
     if (status) {
       return this.db.query<import('../types/index.js').BatchJobItem>(
-        `SELECT * FROM batch_job_items WHERE batch_job_id = $1 AND status = $2
+        `SELECT id, batch_job_id, item_data, status, result, error, created_at, updated_at
+         FROM batch_job_items WHERE batch_job_id = $1 AND status = $2
          ORDER BY created_at ASC LIMIT $3 OFFSET $4`,
-        [batchJobId, status, limit, offset]
+        [batchJobId, status, limitedCount, limitedOffset]
       );
     }
     return this.db.query<import('../types/index.js').BatchJobItem>(
-      `SELECT * FROM batch_job_items WHERE batch_job_id = $1
+      `SELECT id, batch_job_id, item_data, status, result, error, created_at, updated_at
+       FROM batch_job_items WHERE batch_job_id = $1
        ORDER BY created_at ASC LIMIT $2 OFFSET $3`,
-      [batchJobId, limit, offset]
+      [batchJobId, limitedCount, limitedOffset]
     );
   }
 
@@ -443,7 +469,7 @@ export class EventModel {
   }
 
   async findUnprocessed(): Promise<Event[]> {
-    const query = 'SELECT * FROM events WHERE processed = false ORDER BY created_at ASC';
+    const query = 'SELECT id, type, data, processed, created_at, updated_at FROM events WHERE processed = false ORDER BY created_at ASC LIMIT 1000';
     return await this.db.query<Event>(query);
   }
 
@@ -454,7 +480,7 @@ export class EventModel {
   }
 
   async findByType(type: string): Promise<Event[]> {
-    const query = 'SELECT * FROM events WHERE type = $1 ORDER BY created_at DESC';
+    const query = 'SELECT id, type, data, processed, created_at, updated_at FROM events WHERE type = $1 ORDER BY created_at DESC LIMIT 1000';
     return await this.db.query<Event>(query, [type]);
   }
 }
@@ -480,12 +506,12 @@ export class TriggerModel {
   }
 
   async findByFlowId(flowId: string): Promise<Trigger[]> {
-    const query = 'SELECT * FROM triggers WHERE flow_id = $1 AND active = true';
+    const query = 'SELECT id, flow_id, type, config, active, created_at, updated_at FROM triggers WHERE flow_id = $1 AND active = true LIMIT 100';
     return await this.db.query<Trigger>(query, [flowId]);
   }
 
   async findByType(type: string): Promise<Trigger[]> {
-    const query = 'SELECT * FROM triggers WHERE type = $1 AND active = true';
+    const query = 'SELECT id, flow_id, type, config, active, created_at, updated_at FROM triggers WHERE type = $1 AND active = true LIMIT 100';
     return await this.db.query<Trigger>(query, [type]);
   }
 

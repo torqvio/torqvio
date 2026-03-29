@@ -220,6 +220,16 @@ export default function LoginForm({ onSubmit, loading, success, serverError }: L
       </AnimatePresence>
 
       <SubmitButton loading={loading} success={success} label="Sign in" />
+      
+      <div className="text-center">
+        <button
+          type="button"
+          onClick={() => window.location.href = '/forgot-password'}
+          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          Forgot your password?
+        </button>
+      </div>
     </motion.form>
   )
 }

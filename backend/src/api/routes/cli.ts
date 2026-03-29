@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { DatabaseConnection } from '../../database/connection.js';
 import jwt from 'jsonwebtoken';
 
-const router = Router();
+const router: Router = Router();
 
 // CLI Authentication and Project Management
 router.post('/auth/register', async (req: Request, res: Response) => {

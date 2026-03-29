@@ -64,8 +64,11 @@ export class TenantIdentityModel {
 
   async findByProjectId(projectId: string): Promise<TenantIdentity | null> {
     const query = `
-      SELECT * FROM tenant_identity 
+      SELECT id, project_id, tenant_id, industry, revenue_tier, total_revenue_protected, 
+             created_at, updated_at, metadata
+      FROM tenant_identity 
       WHERE project_id = $1
+      LIMIT 1
     `;
     
     return await this.db.queryOne<TenantIdentity>(query, [projectId]);
@@ -242,8 +245,11 @@ export class TenantIdentityModel {
 
   async getAllTenants(): Promise<TenantIdentity[]> {
     const query = `
-      SELECT * FROM tenant_identity 
+      SELECT id, project_id, tenant_id, industry, revenue_tier, total_revenue_protected, 
+             created_at, updated_at, metadata
+      FROM tenant_identity 
       ORDER BY created_at DESC
+      LIMIT 1000
     `;
     
     return await this.db.query<TenantIdentity>(query);
@@ -251,9 +257,12 @@ export class TenantIdentityModel {
 
   async getTenantsByIndustry(industry: string): Promise<TenantIdentity[]> {
     const query = `
-      SELECT * FROM tenant_identity 
+      SELECT id, project_id, tenant_id, industry, revenue_tier, total_revenue_protected, 
+             created_at, updated_at, metadata
+      FROM tenant_identity 
       WHERE industry = $1
       ORDER BY total_revenue_protected DESC
+      LIMIT 500
     `;
     
     return await this.db.query<TenantIdentity>(query, [industry]);
@@ -261,9 +270,12 @@ export class TenantIdentityModel {
 
   async getTenantsByRevenueTier(tier: string): Promise<TenantIdentity[]> {
     const query = `
-      SELECT * FROM tenant_identity 
+      SELECT id, project_id, tenant_id, industry, revenue_tier, total_revenue_protected, 
+             created_at, updated_at, metadata
+      FROM tenant_identity 
       WHERE revenue_tier = $1
       ORDER BY total_revenue_protected DESC
+      LIMIT 500
     `;
     
     return await this.db.query<TenantIdentity>(query, [tier]);

@@ -1,74 +1,109 @@
-export interface PricingPlan {
+export interface AdaptivePlan {
   id: string;
+  mode: 'builder' | 'growth' | 'autopilot';
   name: string;
-  price: number | null; // null for custom pricing
+  basePrice: number;
+  pricingModel: 'static' | 'adaptive' | 'revenue_share';
   description: string;
-  limits: PlanLimits;
-  overageRates: OverageRates;
-  stripePriceId?: string;
-  position: number; // For ordering
+  outcome: string; // What this mode delivers
+  limits: AdaptivePlanLimits;
+  scalingRules: ScalingRules;
+  capabilities: CapabilityLayer[];
+  position: number;
 }
 
-export interface PlanLimits {
-  projects: number; // -1 for unlimited
-  workflows: number; // -1 for unlimited
+export interface AdaptivePlanLimits {
+  // Impact-based limits instead of usage-based
+  revenueGeneratedPerMonth: number; // -1 for unlimited
+  workflowsInProduction: number; // -1 for unlimited
+  integrations: number; // -1 for unlimited
+  teamMembers: number; // -1 for unlimited
+  
+  // Traditional limits for fallback
   executionsPerMonth: number; // -1 for unlimited
   concurrency: number; // -1 for unlimited
   logsRetentionDays: number;
   retryPolicies: 'basic' | 'standard' | 'advanced';
   support: 'community' | 'email' | 'priority' | 'dedicated';
   features: string[];
-  sla?: string; // SLA guarantee for higher tiers
+  sla?: string;
 }
 
-export interface OverageRates {
-  executionRate: number; // Cost per execution over limit
-  stepRuns: boolean; // Whether step runs count separately
+export interface ScalingRules {
+  // Growth Mode: Auto-scaling based on success metrics
+  executionThresholds: { executions: number; price: number }[];
+  valueBasedScaling: boolean; // Scale based on value extracted
+  
+  // Autopilot Mode: Revenue share
+  revenueShareRate: number; // 2-5% of value generated
+  minimumMonthlyFee: number;
+  
+  // Builder Mode: Fixed limits on impact
+  impactLimits: {
+    maxRevenueGenerated: number;
+    maxWorkflowsInProduction: number;
+  };
 }
 
-export interface Usage {
+export interface OutcomeMetrics {
+  valueGenerated: number; // EUR/USD value created
+  timeSaved: number; // Hours saved
+  errorsPrevented: number; // Errors avoided
+  revenueInfluenced: number; // Revenue attributed
+  automationPercentage: number; // % of ops automated
+}
+
+export interface TenantPlan {
+  plan: AdaptivePlan;
+  mode: 'builder' | 'growth' | 'autopilot';
+  status: 'trial' | 'active' | 'canceled' | 'past_due';
+  trialEndsAt?: Date;
+  currentPeriodEnd?: Date;
+  usage: AdaptiveUsage;
+  outcomes: OutcomeMetrics;
+  capabilities: CapabilityLayer[];
+  billing: HybridBilling;
+}
+
+export interface CapabilityLayer {
+  id: string;
+  name: string;
+  layer: 'core' | 'intelligence' | 'control' | 'power';
+  price: number;
+  description: string;
+  capabilities: string[];
+  unlocks: string[]; // What this enables
+  requiredFor: string[]; // Which modes need this
+}
+
+export interface AdaptiveUsage {
   executionsPerMonth: number;
   stepRuns: number;
   projects: number;
   workflows: number;
   concurrency: number;
   apiCalls: number;
+  
+  // New adaptive metrics
+  revenueGenerated: number;
+  workflowsInProduction: number;
+  activeIntegrations: number;
+  teamMembers: number;
 }
 
-export interface TenantPlan {
-  plan: PricingPlan;
-  status: 'trial' | 'active' | 'canceled' | 'past_due';
-  trialEndsAt?: Date;
-  currentPeriodEnd?: Date;
-  usage: Usage;
-  addOns: AddOnSubscription[];
-}
-
-export interface AddOn {
-  id: string;
-  name: string;
-  price: number; // Monthly price
-  description: string;
-  features: string[];
-  stripePriceId?: string;
-}
-
-export interface AddOnSubscription {
-  addOnId: string;
-  active: boolean;
-  subscribedAt?: Date;
-}
-
-export interface BillingCalculation {
-  basePrice: number;
+export interface HybridBilling {
+  baseSubscription: number;
   usageCharges: number;
-  addOnCharges: number;
+  outcomeCharges: number;
+  revenueShare: number;
   total: number;
   currency: string;
   breakdown: {
-    plan: { name: string; price: number };
+    subscription: { name: string; price: number };
     usage: { metric: string; quantity: number; rate: number; charge: number }[];
-    addOns: { name: string; price: number }[];
+    outcomes: { metric: string; value: number; rate: number; charge: number }[];
+    revenueShare: { generated: number; rate: number; charge: number };
+    capabilities: { name: string; price: number }[];
   };
 }
 
@@ -82,157 +117,160 @@ export interface LimitCheck {
 export interface Subscription {
   checkoutUrl?: string;
   planId: string;
+  mode: 'builder' | 'growth' | 'autopilot';
   price: number | null;
 }
 
 import { logger } from '../utils/logger.js';
 
-export class PricingService {
-  private plans: Map<string, PricingPlan> = new Map([
-    ['free', {
-      id: 'free',
-      name: 'Free',
+export class AdaptivePricingService {
+  private capabilityLayers: Map<string, CapabilityLayer> = new Map([
+    ['core', {
+      id: 'core',
+      name: 'Core Layer',
+      layer: 'core',
       price: 0,
-      description: 'Hook Them Forever - Perfect for getting started and small projects',
+      description: 'Essential workflow capabilities',
+      capabilities: ['workflows', 'triggers', 'logs'],
+      unlocks: ['Basic workflow execution', 'Simple triggers', 'Execution logs'],
+      requiredFor: ['builder', 'growth', 'autopilot']
+    }],
+    ['intelligence', {
+      id: 'intelligence',
+      name: 'Intelligence Layer',
+      layer: 'intelligence',
+      price: 49,
+      description: 'AI agents and decision trees',
+      capabilities: ['ai_agents', 'decision_trees', 'anomaly_detection'],
+      unlocks: ['AI workflow optimization', 'Smart decision making', 'Automated anomaly detection'],
+      requiredFor: ['growth', 'autopilot']
+    }],
+    ['control', {
+      id: 'control',
+      name: 'Control Layer',
+      layer: 'control',
+      price: 99,
+      description: 'Observability and debugging',
+      capabilities: ['observability', 'replay', 'debugging'],
+      unlocks: ['Advanced observability', 'Time travel debugging', 'Workflow replay'],
+      requiredFor: ['autopilot']
+    }],
+    ['power', {
+      id: 'power',
+      name: 'Power Layer',
+      layer: 'power',
+      price: 199,
+      description: 'Priority execution and scaling',
+      capabilities: ['priority_execution', 'infra_scaling', 'dedicated_compute'],
+      unlocks: ['Priority workflow execution', 'Auto infrastructure scaling', 'Dedicated compute resources'],
+      requiredFor: ['autopilot']
+    }]
+  ]);
+
+  private adaptivePlans: Map<string, AdaptivePlan> = new Map([
+    ['builder', {
+      id: 'builder',
+      mode: 'builder',
+      name: 'Builder Mode',
+      basePrice: 0,
+      pricingModel: 'static',
+      description: 'For devs and indie hackers. Unlimited experimentation, hard limits on impact.',
+      outcome: 'Build and test workflows without friction',
       limits: {
-        projects: 1,
-        workflows: 5,
-        executionsPerMonth: 1000,
-        concurrency: -1, // shared
-        logsRetentionDays: 1,
+        revenueGeneratedPerMonth: 1000, // €1k max revenue
+        workflowsInProduction: 3,
+        integrations: 5,
+        teamMembers: 2,
+        executionsPerMonth: 10000,
+        concurrency: 5,
+        logsRetentionDays: 7,
         retryPolicies: 'basic',
         support: 'community',
         features: ['basic_retries', 'community_support', 'webhooks', 'scheduler']
       },
-      overageRates: {
-        executionRate: 0.001, // $0.001 per execution
-        stepRuns: false
+      scalingRules: {
+        executionThresholds: [],
+        valueBasedScaling: false,
+        revenueShareRate: 0,
+        minimumMonthlyFee: 0,
+        impactLimits: {
+          maxRevenueGenerated: 1000,
+          maxWorkflowsInProduction: 3
+        }
       },
+      capabilities: [this.capabilityLayers.get('core')!],
       position: 1
     }],
-    ['starter', {
-      id: 'starter',
-      name: 'Starter',
-      price: 25,
-      description: 'Indie Builders - Sweet spot for small SaaS',
+    ['growth', {
+      id: 'growth',
+      mode: 'growth',
+      name: 'Growth Mode',
+      basePrice: 29,
+      pricingModel: 'adaptive',
+      description: 'Auto-scaling pricing based on your success. Pay as you grow.',
+      outcome: 'Scale your business with automated workflows',
       limits: {
-        projects: 5,
-        workflows: 50,
-        executionsPerMonth: 50000,
-        concurrency: 5,
-        logsRetentionDays: 7,
+        revenueGeneratedPerMonth: -1, // Unlimited
+        workflowsInProduction: -1,
+        integrations: -1,
+        teamMembers: -1,
+        executionsPerMonth: -1,
+        concurrency: -1,
+        logsRetentionDays: 30,
         retryPolicies: 'standard',
         support: 'email',
         features: ['standard_retries', 'email_support', 'webhooks', 'scheduler', 'priority_queue']
       },
-      overageRates: {
-        executionRate: 0.001,
-        stepRuns: false
+      scalingRules: {
+        executionThresholds: [
+          { executions: 10000, price: 29 },
+          { executions: 100000, price: 79 },
+          { executions: 1000000, price: 249 },
+          { executions: 10000000, price: 999 }
+        ],
+        valueBasedScaling: true,
+        revenueShareRate: 0,
+        minimumMonthlyFee: 29,
+        impactLimits: {
+          maxRevenueGenerated: -1,
+          maxWorkflowsInProduction: -1
+        }
       },
+      capabilities: [this.capabilityLayers.get('core')!, this.capabilityLayers.get('intelligence')!],
       position: 2
     }],
-    ['pro', {
-      id: 'pro',
-      name: 'Pro',
-      price: 99,
-      description: 'Real Businesses - This is your money printer tier',
+    ['autopilot', {
+      id: 'autopilot',
+      mode: 'autopilot',
+      name: 'Autopilot Mode',
+      basePrice: 0,
+      pricingModel: 'revenue_share',
+      description: 'We take 2-5% of the value we generate. Zero upfront cost.',
+      outcome: 'Guaranteed outcomes powered by execution',
       limits: {
-        projects: 20,
-        workflows: -1, // unlimited
-        executionsPerMonth: 500000,
-        concurrency: 20,
-        logsRetentionDays: 30,
+        revenueGeneratedPerMonth: -1,
+        workflowsInProduction: -1,
+        integrations: -1,
+        teamMembers: -1,
+        executionsPerMonth: -1,
+        concurrency: -1,
+        logsRetentionDays: -1,
         retryPolicies: 'advanced',
-        support: 'priority',
-        features: ['advanced_retries', 'priority_support', 'realtime_monitoring', 'priority_execution', 'custom_branding']
+        support: 'dedicated',
+        features: ['all_features', 'ai_optimization', 'priority_support', 'custom_integrations']
       },
-      overageRates: {
-        executionRate: 0.0008,
-        stepRuns: false
+      scalingRules: {
+        executionThresholds: [],
+        valueBasedScaling: true,
+        revenueShareRate: 0.03, // 3% revenue share
+        minimumMonthlyFee: 0,
+        impactLimits: {
+          maxRevenueGenerated: -1,
+          maxWorkflowsInProduction: -1
+        }
       },
+      capabilities: [this.capabilityLayers.get('core')!, this.capabilityLayers.get('intelligence')!, this.capabilityLayers.get('control')!, this.capabilityLayers.get('power')!],
       position: 3
-    }],
-    ['business', {
-      id: 'business',
-      name: 'Business',
-      price: 399,
-      description: 'Critical Infrastructure - Where companies stop thinking about price',
-      limits: {
-        projects: -1, // unlimited
-        workflows: -1, // unlimited
-        executionsPerMonth: 2000000,
-        concurrency: 100,
-        logsRetentionDays: 90,
-        retryPolicies: 'advanced',
-        support: 'dedicated',
-        features: ['all_features', 'rbac', 'audit_logs', 'sla_guarantee', 'dedicated_concurrency'],
-        sla: '99.9%'
-      },
-      overageRates: {
-        executionRate: 0.0006,
-        stepRuns: false
-      },
-      position: 4
-    }],
-    ['enterprise', {
-      id: 'enterprise',
-      name: 'Enterprise',
-      price: null, // Custom pricing
-      description: 'We Run Your Company - High-margin, low-volume, huge revenue',
-      limits: {
-        projects: -1, // unlimited
-        workflows: -1, // unlimited
-        executionsPerMonth: -1, // unlimited
-        concurrency: -1, // unlimited
-        logsRetentionDays: -1, // unlimited
-        retryPolicies: 'advanced',
-        support: 'dedicated',
-        features: ['all_features', 'dedicated_infrastructure', 'multi_region', 'compliance', 'custom_slas', 'dedicated_slack'],
-        sla: '99.99%'
-      },
-      overageRates: {
-        executionRate: 0.0004,
-        stepRuns: true // Enterprise gets step-run billing
-      },
-      position: 5
-    }]
-  ]);
-
-  private addOns: Map<string, AddOn> = new Map([
-    ['observability_plus', {
-      id: 'observability_plus',
-      name: 'Observability+',
-      price: 49,
-      description: 'Advanced logs, traces, and debugging capabilities',
-      features: ['advanced_logs', 'distributed_tracing', 'debugging_tools', 'performance_insights']
-    }],
-    ['high_priority_execution', {
-      id: 'high_priority_execution',
-      name: 'High Priority Execution',
-      price: 99,
-      description: 'Skip queue, faster execution for critical workflows',
-      features: ['queue_skip', 'faster_execution', 'priority_routing', 'dedicated_resources']
-    }],
-    ['replay_time_travel', {
-      id: 'replay_time_travel',
-      name: 'Replay & Time Travel',
-      price: 29,
-      description: 'Replay any workflow with time travel debugging',
-      features: ['workflow_replay', 'time_travel_debug', 'execution_history', 'state_snapshots']
-    }],
-    ['webhook_reliability', {
-      id: 'webhook_reliability',
-      name: 'Webhook Reliability Pack',
-      price: 19,
-      description: 'Advanced retries and delivery guarantees',
-      features: ['advanced_retries', 'delivery_guarantees', 'webhook_monitoring', 'failure_analysis']
-    }],
-    ['agent_skills_pack', {
-      id: 'agent_skills_pack',
-      name: 'Agent / Skills Pack',
-      price: 19,
-      description: 'Export flows as skills.md, agent-ready APIs',
-      features: ['skills_export', 'agent_apis', 'workflow_templates', 'ai_integration']
     }]
   ]);
 
@@ -241,25 +279,31 @@ export class PricingService {
     
     if (!subscription) {
       return {
-        plan: this.plans.get('free')!,
+        plan: this.adaptivePlans.get('builder')!,
+        mode: 'builder',
         status: 'trial',
         trialEndsAt: this.calculateTrialEnd(tenantId),
         usage: await this.getCurrentUsage(tenantId),
-        addOns: []
+        outcomes: await this.getCurrentOutcomes(tenantId),
+        capabilities: [this.capabilityLayers.get('core')!],
+        billing: await this.calculateHybridBilling(tenantId)
       };
     }
 
-    const plan = this.plans.get(subscription.planId);
+    const plan = this.adaptivePlans.get(subscription.planId);
     if (!plan) {
       throw new Error(`Unknown plan: ${subscription.planId}`);
     }
 
     return {
       plan,
+      mode: plan.mode,
       status: subscription.status,
       currentPeriodEnd: subscription.currentPeriodEnd,
       usage: await this.getCurrentUsage(tenantId),
-      addOns: await this.getTenantAddOns(tenantId)
+      outcomes: await this.getCurrentOutcomes(tenantId),
+      capabilities: plan.capabilities,
+      billing: await this.calculateHybridBilling(tenantId)
     };
   }
 
@@ -272,7 +316,7 @@ export class PricingService {
 
   async checkLimit(tenantId: string, metric: string, requestedAmount: number): Promise<LimitCheck> {
     const currentPlan = await this.getCurrentPlan(tenantId);
-    const limit = (currentPlan.plan.limits as any)[metric as keyof PlanLimits];
+    const limit = (currentPlan.plan.limits as any)[metric as keyof AdaptivePlanLimits];
     const currentUsage = (currentPlan.usage as any)[metric] || 0;
 
     if (limit === -1) {
@@ -290,19 +334,46 @@ export class PricingService {
     };
   }
 
-  // NEW: Calculate monthly billing
-  async calculateMonthlyBilling(tenantId: string): Promise<BillingCalculation> {
+  // NEW: Calculate hybrid billing (subscription + usage + outcomes + revenue share)
+  async calculateHybridBilling(tenantId: string): Promise<HybridBilling> {
     const currentPlan = await this.getCurrentPlan(tenantId);
     const usage = currentPlan.usage;
+    const outcomes = currentPlan.outcomes;
     
-    let basePrice = currentPlan.plan.price || 0;
+    let baseSubscription = currentPlan.plan.basePrice;
     let usageCharges = 0;
+    let outcomeCharges = 0;
+    let revenueShare = 0;
+    
     const usageBreakdown: { metric: string; quantity: number; rate: number; charge: number }[] = [];
+    const outcomeBreakdown: { metric: string; value: number; rate: number; charge: number }[] = [];
 
-    // Calculate execution overages
+    // Calculate adaptive pricing for Growth Mode
+    if (currentPlan.plan.pricingModel === 'adaptive') {
+      const executions = usage.executionsPerMonth;
+      const thresholds = currentPlan.plan.scalingRules.executionThresholds;
+      
+      for (const threshold of thresholds) {
+        if (executions <= threshold.executions) {
+          baseSubscription = threshold.price;
+          break;
+        }
+      }
+    }
+
+    // Calculate revenue share for Autopilot Mode
+    if (currentPlan.plan.pricingModel === 'revenue_share') {
+      const shareRate = currentPlan.plan.scalingRules.revenueShareRate;
+      const generatedValue = outcomes.valueGenerated;
+      revenueShare = generatedValue * shareRate;
+      
+      baseSubscription = Math.max(revenueShare, currentPlan.plan.scalingRules.minimumMonthlyFee);
+    }
+
+    // Calculate usage overages
     if (currentPlan.plan.limits.executionsPerMonth !== -1 && usage.executionsPerMonth > currentPlan.plan.limits.executionsPerMonth) {
       const overage = usage.executionsPerMonth - currentPlan.plan.limits.executionsPerMonth;
-      const rate = currentPlan.plan.overageRates.executionRate;
+      const rate = 0.001; // Default overage rate
       const charge = overage * rate;
       usageCharges += charge;
       
@@ -314,77 +385,76 @@ export class PricingService {
       });
     }
 
-    // Calculate step run overages (for enterprise)
-    if (currentPlan.plan.overageRates.stepRuns && usage.stepRuns > 0) {
-      const rate = currentPlan.plan.overageRates.executionRate * 0.1; // Step runs cost 10% of execution rate
-      const charge = usage.stepRuns * rate;
-      usageCharges += charge;
+    // Calculate outcome-based charges
+    if (outcomes.timeSaved > 0) {
+      const timeValue = outcomes.timeSaved * 50; // €50/hour value
+      const rate = 0.1; // 10% of time value
+      const charge = timeValue * rate;
+      outcomeCharges += charge;
       
-      usageBreakdown.push({
-        metric: 'step_runs',
-        quantity: usage.stepRuns,
+      outcomeBreakdown.push({
+        metric: 'time_saved',
+        value: timeValue,
         rate,
         charge
       });
     }
 
-    // Calculate add-on charges
-    let addOnCharges = 0;
-    const addOnBreakdown: { name: string; price: number }[] = [];
+    // Calculate capability charges
+    let capabilityCharges = 0;
+    const capabilityBreakdown: { name: string; price: number }[] = [];
     
-    for (const addOnSub of currentPlan.addOns) {
-      if (addOnSub.active) {
-        const addOn = this.addOns.get(addOnSub.addOnId);
-        if (addOn) {
-          addOnCharges += addOn.price;
-          addOnBreakdown.push({
-            name: addOn.name,
-            price: addOn.price
-          });
-        }
+    for (const capability of currentPlan.capabilities) {
+      if (capability.price > 0) {
+        capabilityCharges += capability.price;
+        capabilityBreakdown.push({
+          name: capability.name,
+          price: capability.price
+        });
       }
     }
 
-    const total = basePrice + usageCharges + addOnCharges;
+    const total = baseSubscription + usageCharges + outcomeCharges + revenueShare + capabilityCharges;
 
     return {
-      basePrice,
+      baseSubscription,
       usageCharges,
-      addOnCharges,
+      outcomeCharges,
+      revenueShare,
       total,
       currency: 'USD',
       breakdown: {
-        plan: { name: currentPlan.plan.name, price: basePrice },
+        subscription: { name: currentPlan.plan.name, price: baseSubscription },
         usage: usageBreakdown,
-        addOns: addOnBreakdown
+        outcomes: outcomeBreakdown,
+        revenueShare: { generated: outcomes.valueGenerated, rate: currentPlan.plan.scalingRules.revenueShareRate, charge: revenueShare },
+        capabilities: capabilityBreakdown
       }
     };
   }
 
-  // NEW: Get available add-ons
-  getAvailableAddOns(): AddOn[] {
-    return Array.from(this.addOns.values());
+  // NEW: Get available capability layers
+  getAvailableCapabilityLayers(): CapabilityLayer[] {
+    return Array.from(this.capabilityLayers.values());
   }
 
-  // NEW: Subscribe to add-on
-  async subscribeToAddOn(tenantId: string, addOnId: string): Promise<void> {
-    const addOn = this.addOns.get(addOnId);
-    if (!addOn) {
-      throw new Error(`Unknown add-on: ${addOnId}`);
+  // NEW: Subscribe to capability layer
+  async subscribeToCapability(tenantId: string, capabilityId: string): Promise<void> {
+    const capability = this.capabilityLayers.get(capabilityId);
+    if (!capability) {
+      throw new Error(`Unknown capability: ${capabilityId}`);
     }
 
-    // In real implementation, this would update the database
-    logger.info(`Tenant ${tenantId} subscribed to add-on ${addOnId}`);
+    logger.info(`Tenant ${tenantId} subscribed to capability ${capabilityId}`);
   }
 
-  // NEW: Unsubscribe from add-on
-  async unsubscribeFromAddOn(tenantId: string, addOnId: string): Promise<void> {
-    // In real implementation, this would update the database
-    logger.info(`Tenant ${tenantId} unsubscribed from add-on ${addOnId}`);
+  // NEW: Unsubscribe from capability layer
+  async unsubscribeFromCapability(tenantId: string, capabilityId: string): Promise<void> {
+    logger.info(`Tenant ${tenantId} unsubscribed from capability ${capabilityId}`);
   }
 
   async upgradePlan(tenantId: string, newPlanId: string): Promise<Subscription> {
-    const newPlan = this.plans.get(newPlanId);
+    const newPlan = this.adaptivePlans.get(newPlanId);
     if (!newPlan) {
       throw new Error(`Unknown plan: ${newPlanId}`);
     }
@@ -395,11 +465,12 @@ export class PricingService {
     return {
       checkoutUrl: session.url,
       planId: newPlanId,
-      price: newPlan.price
+      mode: newPlan.mode,
+      price: newPlan.basePrice
     };
   }
 
-  private async createCheckoutSession(tenantId: string, plan: PricingPlan): Promise<any> {
+  private async createCheckoutSession(tenantId: string, plan: AdaptivePlan): Promise<any> {
     const tenant = await this.getTenant(tenantId);
     
     // Mock Stripe session creation
@@ -407,23 +478,6 @@ export class PricingService {
       url: `https://checkout.stripe.com/pay/mock-session?plan=${plan.id}`,
       sessionId: `cs_mock_${Date.now()}`
     };
-    
-    /* Real implementation would be:
-    return await this.stripe.checkout.sessions.create({
-      customer: tenant.stripeCustomerId,
-      payment_method_types: ['card'],
-      mode: plan.price > 0 ? 'subscription' : 'setup',
-      line_items: [{
-        price: plan.stripePriceId,
-        quantity: 1
-      }],
-      success_url: `${process.env.FRONTEND_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/billing/canceled`,
-      metadata: {
-        tenantId: tenantId
-      }
-    });
-    */
   }
 
   private async getActiveSubscription(tenantId: string): Promise<any> {
@@ -431,7 +485,7 @@ export class PricingService {
     return null; // No active subscription for demo
   }
 
-  async getCurrentUsage(tenantId: string): Promise<Usage> {
+  async getCurrentUsage(tenantId: string): Promise<AdaptiveUsage> {
     // Mock implementation - would calculate actual usage
     return {
       executionsPerMonth: 450,
@@ -439,19 +493,30 @@ export class PricingService {
       projects: 3,
       workflows: 8,
       concurrency: 2,
-      apiCalls: 1250
+      apiCalls: 1250,
+      
+      // New adaptive metrics
+      revenueGenerated: 2500,
+      workflowsInProduction: 5,
+      activeIntegrations: 8,
+      teamMembers: 3
     };
   }
 
-  private async getTenantAddOns(tenantId: string): Promise<AddOnSubscription[]> {
+  async getCurrentOutcomes(tenantId: string): Promise<OutcomeMetrics> {
+    // Mock implementation - would calculate actual outcomes
+    return {
+      valueGenerated: 5000, // €5k value created
+      timeSaved: 120, // 120 hours saved
+      errorsPrevented: 45, // 45 errors avoided
+      revenueInfluenced: 8000, // €8k revenue attributed
+      automationPercentage: 67 // 67% of ops automated
+    };
+  }
+
+  private async getTenantCapabilities(tenantId: string): Promise<CapabilityLayer[]> {
     // Mock implementation - would query database
-    return [
-      {
-        addOnId: 'observability_plus',
-        active: true,
-        subscribedAt: new Date()
-      }
-    ];
+    return [this.capabilityLayers.get('core')!];
   }
 
   private calculateTrialEnd(tenantId: string): Date {
@@ -469,12 +534,12 @@ export class PricingService {
     };
   }
 
-  getAllPlans(): PricingPlan[] {
-    return Array.from(this.plans.values());
+  getAllAdaptivePlans(): AdaptivePlan[] {
+    return Array.from(this.adaptivePlans.values());
   }
 
-  getPlan(planId: string): PricingPlan | undefined {
-    return this.plans.get(planId);
+  getAdaptivePlan(planId: string): AdaptivePlan | undefined {
+    return this.adaptivePlans.get(planId);
   }
 
   async incrementUsage(tenantId: string, metric: string, amount: number = 1): Promise<void> {

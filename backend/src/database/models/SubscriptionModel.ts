@@ -91,14 +91,14 @@ export class SubscriptionModel {
 
   async findById(id: string): Promise<Subscription | null> {
     return await this.db.queryOne<Subscription>(
-      'SELECT * FROM subscriptions WHERE id = $1',
+      'SELECT id, tenant_id, plan, status, billing_period, current_period_start, current_period_end, created_at, updated_at FROM subscriptions WHERE id = $1',
       [id]
     );
   }
 
   async findByTenantId(tenantId: string): Promise<Subscription | null> {
     return await this.db.queryOne<Subscription>(
-      'SELECT * FROM subscriptions WHERE tenant_id = $1 AND status IN ($2, $3, $4) ORDER BY created_at DESC LIMIT 1',
+      'SELECT id, tenant_id, plan, status, billing_period, current_period_start, current_period_end, created_at, updated_at FROM subscriptions WHERE tenant_id = $1 AND status IN ($2, $3, $4) ORDER BY created_at DESC LIMIT 1',
       [tenantId, 'trial', 'active', 'past_due']
     );
   }
@@ -179,7 +179,8 @@ export class SubscriptionModel {
       : new Date(now.getFullYear(), 11, 31, 23, 59, 59);
 
     return await this.db.queryOne<UsageMetrics>(
-      `SELECT * FROM usage_metrics 
+      `SELECT id, tenant_id, metric, period, period_start, period_end, value, created_at, updated_at
+       FROM usage_metrics 
        WHERE tenant_id = $1 AND metric = $2 AND period = $3 
        AND period_start <= $4 AND period_end >= $5`,
       [tenantId, metric, period, now, periodStart]
@@ -237,7 +238,9 @@ export class SubscriptionModel {
 
   async getAllUsageForTenant(tenantId: string): Promise<UsageMetrics[]> {
     return await this.db.query<UsageMetrics>(
-      `SELECT * FROM usage_metrics WHERE tenant_id = $1 ORDER BY metric, period_start DESC`,
+      `SELECT id, tenant_id, metric, period, period_start, period_end, value, created_at, updated_at
+       FROM usage_metrics WHERE tenant_id = $1 ORDER BY metric, period_start DESC
+       LIMIT 1000`,
       [tenantId]
     );
   }

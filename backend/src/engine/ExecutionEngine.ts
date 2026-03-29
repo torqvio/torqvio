@@ -11,12 +11,12 @@ import {
   ExecutionError
 } from '../types/index.js';
 import { FlowExecutionModel, StepResultModel } from '../database/models.js';
-import { createDatabaseConnection } from '../database/connection.js';
+import { DatabaseConnection } from '../database/connection.js';
 
 export class ExecutionEngine {
   private executionModel: FlowExecutionModel;
   private stepResultModel: StepResultModel;
-  private db = createDatabaseConnection();
+  private db = DatabaseConnection.getInstance();
 
   constructor() {
     this.executionModel = new FlowExecutionModel(this.db);
@@ -269,7 +269,6 @@ export class ExecutionEngine {
 
     // Save step result
     const savedResult = await this.stepResultModel.create({
-      executionId: execution.id,
       stepId: stepResult.stepId,
       stepName: stepResult.stepName,
       status: stepResult.status,

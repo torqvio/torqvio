@@ -2,7 +2,14 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import { createDatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
-import type { WorkflowEvent } from '../../../packages/client/src/types.js';
+// Define WorkflowEvent interface locally to avoid cross-package import issues
+interface WorkflowEvent {
+  id: string;
+  type: 'workflow.started' | 'workflow.completed' | 'workflow.failed' | 'workflow.step.started' | 'workflow.step.completed' | 'workflow.step.failed';
+  data: any;
+  timestamp: string;
+  metadata?: Record<string, any>;
+}
 import { broadcastEvent as broadcastSSEEvent } from './events-stream.js';
 
 export function initializeSocketEvents(httpServer: HTTPServer): SocketIOServer {

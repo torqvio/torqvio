@@ -135,7 +135,7 @@ export class PredictiveEngine {
     const factors = [];
     
     // Customer history contribution
-    if (context.customer.paymentHistory?.failureRate > 0.1) {
+    if (context.customer.paymentHistory?.failureRate && context.customer.paymentHistory.failureRate > 0.1) {
       factors.push(0.3); // 30% contribution
     }
     

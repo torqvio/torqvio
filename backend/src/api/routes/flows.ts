@@ -1,296 +1,288 @@
 import { Router, Request, Response } from 'express';
-import { flow } from '../../engine/FlowBuilder.js';
-import { BackoffStrategy } from '../../types/index.js';
-import { createDatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';
 import { apiAuthMiddleware } from '../../middleware/apiAuth.js';
+import { FlowRepository, FlowExecutionRepository } from '../../repositories/FlowRepository.js';
+import { WorkflowService } from '../../services/WorkflowService.js';
+import { 
+  CreateFlowRequest, 
+  UpdateFlowRequest, 
+  ExecuteFlowRequest,
+  ListFlowsQuery,
+  ApiResponse,
+  NotFoundError,
+  ValidationError
+} from '../../types/index.js';
 
 const router: Router = Router();
+let flowRepository: FlowRepository;
+let executionRepository: FlowExecutionRepository;
+let workflowService: WorkflowService;
+
+// Initialize repositories after database is ready
+function initializeRepositories() {
+  flowRepository = new FlowRepository();
+  executionRepository = new FlowExecutionRepository();
+  workflowService = new WorkflowService();
+}
+
+// Middleware to ensure repositories are initialized
+function ensureRepositories(req: Request, res: Response, next: Function) {
+  if (!flowRepository) {
+    initializeRepositories();
+  }
+  next();
+}
 
 // GET /api/v1/flows - List all flows
-router.get('/', apiAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/', apiAuthMiddleware, ensureRepositories, async (req: Request, res: Response) => {
   try {
-    console.log('Getting database connection...');
-    const db = createDatabaseConnection();
+    const projectId = (req as any).projectId;
+    const query: ListFlowsQuery = {
+      page: parseInt(req.query.page as string) || undefined,
+      limit: parseInt(req.query.limit as string) || undefined,
+      status: req.query.status as string,
+      search: req.query.search as string,
+      sort_by: req.query.sort_by as any,
+      sort_order: req.query.sort_order as any
+    };
+
+    const { flows, meta } = await flowRepository.list(query, projectId);
     
-    // Test database connection first
-    console.log('Testing DB connection...');
-    const healthCheck = await db.query('SELECT 1 as test');
-    console.log('DB Health check:', healthCheck);
-    
-    console.log('Querying flows...');
-    const flows = await db.query(
-      'SELECT * FROM flows ORDER BY created_at DESC'
-    );
-    
-    console.log('Query result:', flows);
-    
-    const result = {
-      flows: flows || [],
-      count: (flows || []).length
+    const response: ApiResponse<{ flows: any[] }> = {
+      success: true,
+      data: { flows, ...meta },
+      meta
     };
     
-    console.log('Sending response:', result);
-    res.json(result);
+    res.json(response);
   } catch (error) {
-    console.error('Error in flows endpoint:', error);
     logger.error('Failed to list flows:', error);
     res.status(500).json({
-      error: 'Failed to list flows',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'LIST_FLOWS_ERROR',
+        message: 'Failed to list flows',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
 
 // GET /api/v1/flows/:id - Get a specific flow
-router.get('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', apiAuthMiddleware, ensureRepositories, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const db = createDatabaseConnection();
+    const projectId = (req as any).projectId;
+
+    const flow = await flowRepository.findById(id, projectId);
     
-    const result = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
-    );
-    
-    if (result.length === 0) {
-      return res.status(404).json({
-        error: 'Flow not found',
-        message: `Flow with id ${id} not found`
-      });
+    if (!flow) {
+      throw new NotFoundError('Flow', id);
     }
     
-    res.json(result[0]);
+    const response: ApiResponse = {
+      success: true,
+      data: flow
+    };
+    
+    res.json(response);
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'FLOW_NOT_FOUND',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
+    }
+    
     logger.error('Failed to get flow:', error);
     res.status(500).json({
-      error: 'Failed to get flow',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'GET_FLOW_ERROR',
+        message: 'Failed to get flow',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
 
 // POST /api/v1/flows - Create a new flow
-router.post('/', apiAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/', apiAuthMiddleware, ensureRepositories, async (req: Request, res: Response) => {
   try {
     const { name, definition } = req.body;
-    
+    const projectId = (req as any).projectId;
+
     if (!name || !definition) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        message: 'name and definition are required'
+      throw new ValidationError('name and definition are required');
+    }
+
+    const createData: CreateFlowRequest = { name, definition };
+    const flow = await flowRepository.create(createData, projectId);
+    
+    const response: ApiResponse = {
+      success: true,
+      data: { flow },
+      message: 'Flow created successfully'
+    };
+    
+    res.status(201).json(response);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
       });
+      return;
     }
     
-    const db = createDatabaseConnection();
-    
-    // Create flow record
-    const result = await db.query(
-      `INSERT INTO flows (name, definition, created_at, updated_at)
-       VALUES ($1, $2, NOW(), NOW())
-       RETURNING *`,
-      [name, JSON.stringify(definition)]
-    );
-    
-    logger.info(`Flow created: ${name}`, { flowId: result[0].id });
-    
-    res.status(201).json({
-      flow: result[0],
-      message: 'Flow created successfully'
-    });
-  } catch (error) {
     logger.error('Failed to create flow:', error);
     res.status(500).json({
-      error: 'Failed to create flow',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'CREATE_FLOW_ERROR',
+        message: 'Failed to create flow',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
 
 // PUT /api/v1/flows/:id - Update a flow
-router.put('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
+router.put('/:id', apiAuthMiddleware, ensureRepositories, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, definition } = req.body;
+    const projectId = (req as any).projectId;
+
+    const updateData: UpdateFlowRequest = { name, definition };
+    const flow = await flowRepository.update(id, updateData, projectId);
     
-    const db = createDatabaseConnection();
+    const response: ApiResponse = {
+      success: true,
+      data: { flow },
+      message: 'Flow updated successfully'
+    };
     
-    // Check if flow exists
-    const existing = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
-    );
-    
-    if (existing.length === 0) {
-      return res.status(404).json({
-        error: 'Flow not found',
-        message: `Flow with id ${id} not found`
+    res.json(response);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'FLOW_NOT_FOUND',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
       });
+      return;
     }
     
-    // Update flow
-    const result = await db.query(
-      `UPDATE flows 
-       SET name = COALESCE($1, name),
-           definition = COALESCE($2, definition),
-           updated_at = NOW()
-       WHERE id = $3
-       RETURNING *`,
-      [name, definition ? JSON.stringify(definition) : undefined, id]
-    );
-    
-    logger.info(`Flow updated: ${id}`, { flowId: id });
-    
-    res.json({
-      flow: result[0],
-      message: 'Flow updated successfully'
-    });
-  } catch (error) {
     logger.error('Failed to update flow:', error);
     res.status(500).json({
-      error: 'Failed to update flow',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'UPDATE_FLOW_ERROR',
+        message: 'Failed to update flow',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
 
 // DELETE /api/v1/flows/:id - Delete a flow
-router.delete('/:id', apiAuthMiddleware, async (req: Request, res: Response) => {
+router.delete('/:id', apiAuthMiddleware, ensureRepositories, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const db = createDatabaseConnection();
+    const projectId = (req as any).projectId;
+
+    await flowRepository.delete(id, projectId);
     
-    // Check if flow exists
-    const existing = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
-    );
+    const response: ApiResponse = {
+      success: true,
+      message: 'Flow deleted successfully'
+    };
     
-    if (existing.length === 0) {
-      return res.status(404).json({
-        error: 'Flow not found',
-        message: `Flow with id ${id} not found`
+    res.json(response);
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'FLOW_NOT_FOUND',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
       });
+      return;
     }
     
-    // Delete flow (cascade should handle related records)
-    await db.query('DELETE FROM flows WHERE id = $1', [id]);
-    
-    logger.info(`Flow deleted: ${id}`, { flowId: id });
-    
-    res.json({
-      message: 'Flow deleted successfully'
-    });
-  } catch (error) {
     logger.error('Failed to delete flow:', error);
     res.status(500).json({
-      error: 'Failed to delete flow',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'DELETE_FLOW_ERROR',
+        message: 'Failed to delete flow',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
 
 // POST /api/v1/flows/:id/execute - Execute a flow
-router.post('/:id/execute', apiAuthMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/execute', apiAuthMiddleware, ensureRepositories, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { payload } = req.body;
-    
-    const db = createDatabaseConnection();
-    
-    // Check if flow exists
-    const flowResult = await db.query(
-      'SELECT * FROM flows WHERE id = $1',
-      [id]
-    );
-    
-    if (flowResult.length === 0) {
-      return res.status(404).json({
-        error: 'Flow not found',
-        message: `Flow with id ${id} not found`
-      });
+    const projectId = (req as any).projectId;
+
+    // Check if flow exists and belongs to this project
+    const flow = await flowRepository.findById(id, projectId);
+    if (!flow) {
+      throw new NotFoundError('Flow', id);
     }
     
-    const flow = flowResult[0];
+    // Create execution using WorkflowService
+    const execution = await workflowService.triggerWorkflow(flow.name, payload);
     
-    // Create execution record
-    const executionResult = await db.query(
-      `INSERT INTO flow_executions (flow_id, status, payload, created_at, updated_at)
-       VALUES ($1, 'pending', $2, NOW(), NOW())
-       RETURNING *`,
-      [id, JSON.stringify(payload || {})]
-    );
-    
-    const execution = executionResult[0];
-    
-    logger.info(`Flow execution started: ${id}`, { 
-      flowId: id, 
-      executionId: execution.id 
-    });
-    
-    // Execute the workflow asynchronously
-    executeWorkflowAsync(flow, execution, payload || {}).catch(error => {
-      logger.error('Async workflow execution failed:', error);
-    });
-    
-    res.status(202).json({
-      execution: execution,
+    const response: ApiResponse = {
+      success: true,
+      data: { execution },
       message: 'Flow execution started'
-    });
+    };
+    
+    res.status(202).json(response);
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'FLOW_NOT_FOUND',
+          message: error.message,
+          timestamp: new Date().toISOString()
+        }
+      });
+      return;
+    }
+    
     logger.error('Failed to execute flow:', error);
     res.status(500).json({
-      error: 'Failed to execute flow',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: {
+        code: 'EXECUTE_FLOW_ERROR',
+        message: 'Failed to execute flow',
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });
-
-// Async workflow execution function
-async function executeWorkflowAsync(flow: any, execution: any, input: any) {
-  const db = createDatabaseConnection();
-  
-  try {
-    // Update execution status to running
-    await db.query(
-      'UPDATE flow_executions SET status = $1, updated_at = NOW() WHERE id = $2',
-      ['running', execution.id]
-    );
-    
-    // Import and execute the workflow
-    const { workflow } = await import('../../../packages/core/dist/index.js');
-    const workflowDefinition = JSON.parse(flow.definition);
-    
-    // Create workflow instance
-    const workflowInstance = workflow(flow.name, workflowDefinition);
-    
-    // Execute the workflow
-    const result = await workflowInstance.execute(input);
-    
-    // Update execution with results
-    await db.query(
-      `UPDATE flow_executions 
-       SET status = $1, results = $2, completed_at = NOW(), updated_at = NOW() 
-       WHERE id = $3`,
-      ['completed', JSON.stringify(result.results), execution.id]
-    );
-    
-    logger.info(`Workflow execution completed: ${execution.id}`, {
-      executionId: execution.id,
-      resultsCount: Object.keys(result.results).length
-    });
-    
-  } catch (error) {
-    // Update execution with error
-    await db.query(
-      `UPDATE flow_executions 
-       SET status = $1, error = $2, completed_at = NOW(), updated_at = NOW() 
-       WHERE id = $3`,
-      ['failed', (error as Error).message, execution.id]
-    );
-    
-    logger.error(`Workflow execution failed: ${execution.id}`, error);
-  }
-}
 
 export default router;

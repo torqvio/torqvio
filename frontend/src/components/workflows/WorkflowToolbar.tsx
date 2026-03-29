@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, List, LayoutGrid, Plus, ChevronDown, ArrowUp, ArrowDown, Play, Pause, Trash2, Rocket } from 'lucide-react'
+import { Search, List, LayoutGrid, Plus, ChevronDown, ArrowUp, ArrowDown, Play, Pause, Trash2, Rocket, Brain } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +29,9 @@ interface WorkflowToolbarProps {
   searchInputRef?: React.RefObject<HTMLInputElement>
   /** Current sub-nav view — controls which filters/actions are visible */
   subNavView?: 'all' | 'deployed' | 'drafts' | 'templates' | 'recent'
+  showIntelligence?: boolean
+  onIntelligenceToggle?: () => void
+  optimizationCount?: number
 }
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string; dotClass: string }[] = [
@@ -81,6 +84,9 @@ export function WorkflowToolbar({
   onBulkDeploy,
   searchInputRef,
   subNavView = 'all',
+  showIntelligence = false,
+  onIntelligenceToggle,
+  optimizationCount = 0,
 }: WorkflowToolbarProps) {
   const [statusOpen, setStatusOpen] = useState(false)
   const [sortOpen, setSortOpen] = useState(false)
@@ -220,6 +226,25 @@ export function WorkflowToolbar({
               </div>
             )}
           </div>
+        )}
+
+        {/* Intelligence Toggle */}
+        {showIntelligence && (
+          <button
+            onClick={onIntelligenceToggle}
+            className={cn(
+              'flex items-center gap-1.5 h-[26px] px-2 text-xs rounded-md transition-colors',
+              showIntelligence 
+                ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-purple-400 border border-purple-500/30' 
+                : 'bg-surface border border-border text-text-muted hover:text-text-secondary'
+            )}
+          >
+            <Brain className="w-3.5 h-3.5" />
+            <span>AI</span>
+            {optimizationCount > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+            )}
+          </button>
         )}
 
         {/* View mode toggle */}

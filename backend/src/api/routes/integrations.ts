@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { IntegrationService, IntegrationType } from '../../integrations/IntegrationService';
 import { StripeConnector } from '../../integrations/connectors/StripeConnector';
 import { ShopifyConnector } from '../../integrations/connectors/ShopifyConnector';
@@ -6,7 +6,7 @@ import { GenericAPIConnector } from '../../integrations/connectors/GenericAPICon
 import { createDatabaseConnection } from '../../database/connection';
 import { v4 as uuidv4 } from 'uuid';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // Initialize integration service
 const db = createDatabaseConnection();

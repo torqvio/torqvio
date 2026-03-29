@@ -1,3 +1,9 @@
+import { Router, Request, Response } from 'express';
+import { logger } from '../../utils/logger.js';
+import { getWebhookDbConnection } from '../../database/webhook-connection.js';
+
+const router: Router = Router();
+
 // DELETE /api/v1/webhooks/bulk - Bulk delete webhooks (for cleanup)
 router.delete('/bulk', async (req: Request, res: Response) => {
   try {

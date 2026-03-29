@@ -13,7 +13,7 @@ function getClient() {
   const { config } = loadConfig();
   const apiUrl = config.api?.url || process.env.BASE_URL || 'http://localhost:8459';
   const apiKey = config.auth?.api_key || process.env.TORQVIO_API_KEY;
-  const token = config.auth?.token;
+  const token = (config.auth as any)?.token;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;

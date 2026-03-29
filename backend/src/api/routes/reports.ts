@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { DatabaseConnection } from '../database/connection.js';
-import { WeeklyReportGenerator } from '../growth/WeeklyReportGenerator.js';
-import { authenticateApiKey, AuthenticatedRequest } from '../utils/auth.js';
-import { ShareableReportService } from '../reports/ShareableReportService.js';
+import { DatabaseConnection } from '../../database/connection.js';
+import { WeeklyReportGenerator } from '../../growth/WeeklyReportGenerator.js';
+import { authenticateApiKey, AuthenticatedRequest } from '../../utils/auth.js';
+import { ShareableReportService } from '../../reports/ShareableReportService.js';
 
 export function createReportsRouter(db: DatabaseConnection): Router {
   const router = Router();
@@ -18,7 +18,7 @@ export function createReportsRouter(db: DatabaseConnection): Router {
       }
 
       // Get report from service (mock implementation for now)
-      const report = await reportService.getReport(reportId);
+      const report = await (reportService as any).getReport(reportId);
       
       if (!report) {
         return res.status(404).json({ error: 'Report not found or expired' });
@@ -38,10 +38,10 @@ export function createReportsRouter(db: DatabaseConnection): Router {
         chart: {
           type: 'bar',
           data: {
-            labels: report.data.dailyBreakdown.map(d => d.date),
+            labels: report.data.dailyBreakdown.map((d: any) => d.date),
             datasets: [{
               label: 'Revenue Protected',
-              data: report.data.dailyBreakdown.map(d => d.recovered),
+              data: report.data.dailyBreakdown.map((d: any) => d.recovered),
               backgroundColor: '#9333ea',
               borderColor: '#7c3aed',
               borderWidth: 1

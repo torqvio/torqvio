@@ -40,11 +40,21 @@ interface UserSession {
   isActive: boolean;
 }
 
-export interface AuthenticatedRequest extends Omit<Request, 'user'> {
-  user?: JWTPayload;
-  session?: UserSession;
-  projectId?: string;
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JWTPayload;
+      session?: UserSession;
+      projectId?: string;
+      eventBus?: any;
+      eventModel?: any;
+      eventProcessor?: any;
+      eventSubscriptionModel?: any;
+    }
+  }
 }
+
+export type AuthenticatedRequest = Request;
 
 // Role hierarchy for authorization
 const ROLE_HIERARCHY = {
@@ -57,7 +67,7 @@ const ROLE_HIERARCHY = {
 const activeSessions = new Map<string, UserSession>();
 
 // Enhanced token authentication with session validation
-export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function authenticateToken(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -206,7 +216,7 @@ const API_KEY_CACHE = new Map<string, { project: any; timestamp: number }>();
 const CACHE_TTL = 60000; // 1 minute cache
 
 // Enhanced API key authentication with rate limiting
-export async function authenticateApiKey(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+export async function authenticateApiKey(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Support both X-API-Key header and Authorization: Bearer format (as documented)
   let apiKey = req.headers['x-api-key'] as string;
   
@@ -259,17 +269,32 @@ export async function authenticateApiKey(req: AuthenticatedRequest, res: Respons
   const keyHash = createHash('sha256').update(apiKey).digest('hex');
 
   const namedKey = await db.queryOne(
-    `SELECT id, user_id, name, permissions FROM api_keys
-     WHERE key_hash = $1 AND is_active = true
-       AND (expires_at IS NULL OR expires_at > NOW())`,
+    `SELECT ak.id, ak.user_id, ak.name, ak.permissions, ak.project_id,
+            p.name as project_name
+     FROM api_keys ak
+     LEFT JOIN projects p ON p.id = ak.project_id
+     WHERE ak.key_hash = $1 AND ak.is_active = true
+       AND (ak.expires_at IS NULL OR ak.expires_at > NOW())`,
     [keyHash]
   ).catch(() => null);
 
   if (namedKey) {
+    if (!namedKey.project_id) {
+      const requestId = (req as any).requestId;
+      const response = createErrorResponse(
+        ErrorCode.AUTHENTICATION_FAILED,
+        'API key is not associated with a project',
+        requestId,
+        { hint: 'Regenerate your API key from the dashboard to assign it to a project' }
+      );
+      res.status(401).json(response);
+      return;
+    }
     await db.query('UPDATE api_keys SET last_used_at = NOW() WHERE id = $1', [namedKey.id]).catch(() => {});
-    API_KEY_CACHE.set(apiKey, { project: { id: namedKey.id, name: namedKey.name, owner_id: namedKey.user_id }, timestamp: now });
-    req.projectId = namedKey.id;
-    (req as any).project = { id: namedKey.id, name: namedKey.name, owner_id: namedKey.user_id };
+    const project = { id: namedKey.project_id, name: namedKey.project_name, owner_id: namedKey.user_id };
+    API_KEY_CACHE.set(apiKey, { project, timestamp: now });
+    req.projectId = namedKey.project_id;
+    (req as any).project = project;
     next();
     return;
   }
@@ -338,7 +363,7 @@ function hashApiKey(apiKey: string): string {
 }
 
 // Enhanced optional auth with better error handling
-export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function optionalAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -381,7 +406,7 @@ export function optionalAuth(req: AuthenticatedRequest, res: Response, next: Nex
 
 // Role-based authorization middleware
 export function requireRole(minimumRole: 'admin' | 'user' | 'viewer') {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({
         error: 'Authentication required',
@@ -507,7 +532,7 @@ export async function refreshToken(req: Request, res: Response) {
 }
 
 // Logout and session invalidation
-export function invalidateSession(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function invalidateSession(req: Request, res: Response, next: NextFunction) {
   if (req.session) {
     req.session.isActive = false;
     activeSessions.delete(req.session.id);
