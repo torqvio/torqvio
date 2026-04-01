@@ -240,20 +240,18 @@ export class IntegrationService {
       const overallStatus = this.determineHealthStatus(checks);
 
       return {
-        status: overallStatus,
-        lastCheck: new Date().toISOString(),
-        details: checks
+        overall: overallStatus,
+        checks: checks
       };
     } catch (error) {
       this.logger.error('Failed to check integration health', { id, error });
       
       return {
-        status: 'unhealthy',
-        lastCheck: new Date().toISOString(),
-        details: [{
-          component: 'system',
+        overall: 'unhealthy',
+        checks: [{
           status: 'unhealthy',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date()
         }]
       };
     }
@@ -262,7 +260,7 @@ export class IntegrationService {
   // Metrics and Monitoring
   async getIntegrationMetrics(id: string, period: string): Promise<IntegrationMetrics> {
     try {
-      const metrics = await this.db.queryOne(`
+      const result = await this.db.query(`
         SELECT 
           COUNT(*) as executions,
           AVG(CASE WHEN success = 1 THEN 1 ELSE 0 END) * 100 as success_rate,
@@ -274,12 +272,13 @@ export class IntegrationService {
           AND created_at >= datetime('now', '-${period}')
       `, [id]);
 
+      const metrics = result.rows[0] || {};
+
       return {
         executions: metrics.executions || 0,
         successRate: metrics.success_rate || 0,
         averageDuration: metrics.average_duration || 0,
-        errorRate: metrics.error_rate || 0,
-        lastExecution: metrics.last_execution
+        lastExecution: metrics.last_execution || new Date().toISOString()
       };
     } catch (error) {
       this.logger.error('Failed to get integration metrics', { id, period, error });
