@@ -19,7 +19,7 @@ EXPOSE 7243
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:7243/api/health || exit 1
+  CMD curl -f http://localhost:7243 || exit 1
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["npm", "run", "start", "--", "-p", "7243"]

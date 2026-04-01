@@ -12,7 +12,7 @@ RUN npm install
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN npm run build && ls -la dist/
 
 # Prune dev dependencies to keep production image small
 RUN npm prune --production
