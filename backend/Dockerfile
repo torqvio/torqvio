@@ -14,7 +14,7 @@ COPY . .
 # Build the application
 RUN npm run build && ls -la dist/
 
-# Prune dev dependencies to keep production image small
+# Prune dev dependencies to keep production image small (but keep dist)
 RUN npm prune --production
 
 # Expose port
