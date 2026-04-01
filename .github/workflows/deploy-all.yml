@@ -67,8 +67,8 @@ jobs:
       - name: Deploy all services to production
         run: |
           echo "Deploy all services to production VPS"
-          # Deploy all services together using production compose file:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose -f docker-compose.prod.yml down && docker-compose -f docker-compose.prod.yml up -d --build"
+          # Check if directory exists and show actual error:
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "ls -la /var/www/ || echo 'Directory does not exist'"
 
 deploy-manual:
     if: github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_backend == 'true' || github.event.inputs.deploy_frontend == 'true')
@@ -99,7 +99,7 @@ deploy-manual:
       - name: Deploy all services to production
         run: |
           echo "Deploy all services to production VPS"
-          # Deploy all services together using production compose file:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose -f docker-compose.prod.yml down && docker-compose -f docker-compose.prod.yml up -d --build"
+          # Check if directory exists and show actual error:
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "ls -la /var/www/ || echo 'Directory does not exist'"
           
   
