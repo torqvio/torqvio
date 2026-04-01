@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ExecutionToolbar, type ExecStatusFilter, type ExecDateRange } from '@/components/executions/ExecutionToolbar'
 import ExecutionTable from '@/components/executions/ExecutionTable'
@@ -8,7 +8,7 @@ import { TablePagination } from '@/components/workflows/TablePagination'
 import { useExecutions } from '@/hooks/useExecutions'
 import type { Execution } from '@/types/execution'
 
-export default function ExecutionsPage() {
+function ExecutionsContent() {
   const searchParams = useSearchParams()
   
   const { executions, loading, error, retry, cancel, refresh } = useExecutions()
@@ -107,5 +107,15 @@ export default function ExecutionsPage() {
         onPageSizeChange={(s) => { setPageSize(s); setPage(1) }}
       />
     </div>
+  )
+}
+
+export default function ExecutionsPage() {
+  return (
+    <Suspense fallback={<div className="p-8">
+      <div className="text-center text-gray-500">Loading executions...</div>
+    </div>}>
+      <ExecutionsContent />
+    </Suspense>
   )
 }

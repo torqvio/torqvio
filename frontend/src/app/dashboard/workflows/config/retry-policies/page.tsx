@@ -481,6 +481,13 @@ function PolicyCard({
   )
 }
 
+// Helper function
+const getHealthColor = (score: number) => {
+  if (score >= 90) return 'bg-green-500'
+  if (score >= 70) return 'bg-yellow-500'
+  return 'bg-red-500'
+}
+
 export default function RetryPoliciesPage() {
   const [policies, setPolicies] = useState<RetryPolicy[]>(INITIAL_POLICIES)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -578,12 +585,6 @@ export default function RetryPoliciesPage() {
       case 'low': return 'text-blue-400 bg-blue-400/10 border-blue-400/30'
       default: return 'text-gray-400 bg-gray-400/10 border-gray-400/30'
     }
-  }
-
-  const getHealthColor = (score: number) => {
-    if (score >= 90) return 'bg-green-500'
-    if (score >= 70) return 'bg-yellow-500'
-    return 'bg-red-500'
   }
 
   return (

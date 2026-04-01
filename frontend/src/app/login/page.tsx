@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/providers/AuthProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -9,9 +9,9 @@ import LoginForm from '@/components/auth/LoginForm'
 import RegisterForm from '@/components/auth/RegisterForm'
 import OAuthButtons from '@/components/auth/OAuthButtons'
 import { Rocket, Shield, Activity, Webhook, CheckCircle2, ArrowRight, Zap, BarChart3, Lock } from 'lucide-react'
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function LoginPage() {
+// Component that uses useSearchParams
+function LoginContent() {
   const { login, register, loginWithGithub, loginWithGoogle, isAuthenticated } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -305,5 +305,17 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">
+      <div className="text-white">Loading...</div>
+    </div>}>
+      <LoginContent />
+    </Suspense>
   )
 }
