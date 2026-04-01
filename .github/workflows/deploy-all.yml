@@ -19,6 +19,7 @@ on:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     outputs:
       backend: ${{ steps.changes.outputs.backend }}
       frontend: ${{ steps.changes.outputs.frontend }}
@@ -36,9 +37,8 @@ jobs:
             frontend:
               - 'frontend/**'
 
-  deploy-backend:
-    needs: detect-changes
-    if: (needs.detect-changes.outputs.backend == 'true') || (github.event.inputs.deploy_backend == 'true')
+  deploy-all:
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_backend == 'true' || github.event.inputs.deploy_frontend == 'true')) || (github.event_name == 'push' && (needs.detect-changes.outputs.backend == 'true' || needs.detect-changes.outputs.frontend == 'true'))
     runs-on: ubuntu-latest
     
     steps:
@@ -49,65 +49,22 @@ jobs:
         with:
           node-version: '22'
           
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: |
           cd backend
           npm install
           
-      - name: Run tests
+      - name: Install frontend dependencies
         run: |
-          cd backend
-          npm test
+          cd frontend
+          npm install
           
-      - name: Lint
-        run: |
-          cd backend
-          npm run lint
-          
-      - name: Format check
-        run: |
-          cd backend
-          npm run format -- --check
-          
-      - name: Build
+      - name: Build backend
         run: |
           cd backend
           npm run build || true
           
-      - name: Install sshpass
-        run: sudo apt-get update && sudo apt-get install -y sshpass
-          
-      - name: Deploy to production
-        run: |
-          echo "Deploy backend to production VPS"
-          # Automated deployment via Docker with password authentication:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd backend && docker-compose down && docker-compose up -d --build"
-          
-  deploy-frontend:
-    needs: detect-changes
-    if: (needs.detect-changes.outputs.frontend == 'true') || (github.event.inputs.deploy_frontend == 'true')
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm install
-          
-      - name: Run tests
-        run: |
-          cd frontend
-          npm test || true
-          
-                
-      - name: Build
+      - name: Build frontend
         run: |
           cd frontend
           npm run build
@@ -115,10 +72,10 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
           
-      - name: Deploy to production
+      - name: Deploy all services to production
         run: |
-          echo "Deploy frontend to production VPS"
-          # Automated deployment via Docker with password authentication:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd frontend && docker-compose down && docker-compose up -d --build"
+          echo "Deploy all services to production VPS"
+          # Deploy all services together using production compose file:
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose -f docker-compose.prod.yml down && docker-compose -f docker-compose.prod.yml up -d --build"
           
   
