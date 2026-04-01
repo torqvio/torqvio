@@ -60,23 +60,19 @@ jobs:
           version: 10
           
       - name: Install dependencies
-        run: |
-          cd frontend
-          pnpm install
+        working-directory: ./frontend
+        run: pnpm install
           
       - name: Run tests
-        run: |
-          cd frontend
-          pnpm test || true  # Frontend may not have tests
+        working-directory: ./frontend
+        run: pnpm test || true  # Frontend may not have tests
           
       - name: Lint
-        run: |
-          cd frontend 
-          pnpm run lint
+        working-directory: ./frontend
+        run: pnpm run lint
           
       - name: Build
-        run: |
-          cd frontend
-          pnpm run build
+        working-directory: ./frontend
+        run: pnpm run build
 
   
