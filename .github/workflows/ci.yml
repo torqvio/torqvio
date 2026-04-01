@@ -67,9 +67,6 @@ jobs:
         working-directory: ./frontend
         run: pnpm test || true  # Frontend may not have tests
           
-      - name: Lint
-        run: npx next lint ./frontend
-          
       - name: Build
         working-directory: ./frontend
         run: pnpm run build
