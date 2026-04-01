@@ -46,10 +46,8 @@ jobs:
           echo "Deploy all services to production VPS"
           # Test connectivity first
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
-          # Check what files exist and restore docker-compose.yml if needed
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && ls -la docker-compose.yml || cp docker/docker-compose.yml docker-compose.yml"
-          # Pull latest changes
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker system prune -f"
+          # Pull latest changes and ensure docker-compose.yml exists
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && git checkout HEAD -- docker-compose.yml"
           # Deploy all services together using compose file:
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker-compose down && docker-compose up -d --build"
           
