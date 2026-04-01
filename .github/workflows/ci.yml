@@ -18,25 +18,30 @@ jobs:
         with:
           node-version: '22'
           
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          
       - name: Install dependencies
         run: |
           cd backend
-          npm install
+          pnpm install
           
       - name: Run tests
         run: |
           cd backend
-          npm test
+          pnpm test
           
       - name: Lint
         run: |
           cd backend
-          npm run lint
+          pnpm run lint
           
       - name: Build
         run: |
           cd backend
-          npm run build
+          pnpm run build
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -49,25 +54,30 @@ jobs:
         with:
           node-version: '22'
           
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          
       - name: Install dependencies
         run: |
           cd frontend
-          npm install
+          pnpm install
           
       - name: Run tests
         run: |
           cd frontend
-          npm test || true  # Frontend may not have tests
+          pnpm test || true  # Frontend may not have tests
           
       - name: Lint
         run: |
           cd frontend
-          npm run lint
+          pnpm run lint
           
       - name: Build
         run: |
           cd frontend
-          npm run build
+          pnpm run build
 
   test-landing-page:
     runs-on: ubuntu-latest
@@ -80,22 +90,27 @@ jobs:
         with:
           node-version: '22'
           
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          
       - name: Install dependencies
         run: |
-          cd landinpage
-          npm install
+          cd landingpage
+          pnpm install
           
       - name: Run tests
         run: |
-          cd landinpage
-          npm test || true  # Landing page may not have tests
+          cd landingpage
+          pnpm test || true  # Landing page may not have tests
           
       - name: Lint
         run: |
-          cd landinpage
-          npm run lint || true  # May not have lint script
+          cd landingpage
+          pnpm run lint || true  # May not have lint script
           
       - name: Build
         run: |
-          cd landinpage
-          npm run build
+          cd landingpage
+          pnpm run build
