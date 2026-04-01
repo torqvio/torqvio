@@ -60,16 +60,7 @@ jobs:
           cd frontend
           npm install
           
-      - name: Build backend
-        run: |
-          cd backend
-          npm run build || true
-          
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm run build
-          
+                
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
           
@@ -101,16 +92,7 @@ deploy-manual:
           cd frontend
           npm install
           
-      - name: Build backend
-        run: |
-          cd backend
-          npm run build || true
-          
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm run build
-          
+                
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
           
