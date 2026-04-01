@@ -46,8 +46,8 @@ jobs:
           echo "Deploy all services to production VPS"
           # Test connectivity first
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
-          # Force clean pull and remove old docker images
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git reset --hard HEAD && git clean -fd && git pull origin main && docker system prune -f"
+          # Force clean pull but keep docker-compose.yml
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git reset --hard HEAD && git pull origin main && docker system prune -f"
           # Deploy all services together using compose file:
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker-compose down && docker-compose up -d --build"
           
