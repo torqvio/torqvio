@@ -44,15 +44,38 @@ jobs:
       - name: Deploy all services to production
         run: |
           echo "Deploy all services to production VPS"
+          # Function to retry SSH commands
+          retry_ssh() {
+            local max_attempts=3
+            local attempt=1
+            while [ $attempt -le $max_attempts ]; do
+              echo "SSH attempt $attempt/$max_attempts"
+              if sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "$1"; then
+                echo "SSH command succeeded"
+                return 0
+              else
+                echo "SSH attempt $attempt failed, waiting 10 seconds..."
+                sleep 10
+                ((attempt++))
+              fi
+            done
+            echo "All SSH attempts failed"
+            exit 1
+          }
+          
           # Test connectivity first
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'" || exit 1
+          retry_ssh "echo 'SSH connection successful'"
+          
           # Pull latest changes and ensure docker-compose.yml exists
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && git checkout HEAD -- docker-compose.yml" || exit 1
+          retry_ssh "cd /var/www/torqvio && git pull origin main && git checkout HEAD -- docker-compose.yml"
+          
           # Clear Docker cache and rebuild
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker system prune -f" || exit 1
+          retry_ssh "cd /var/www/torqvio && docker system prune -f"
+          
           # Deploy all services together using compose file:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker-compose down && docker-compose up -d --build" || exit 1
+          retry_ssh "cd /var/www/torqvio && docker-compose down && docker-compose up -d --build"
+          
           # Verify services are running
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker ps"
+          retry_ssh "cd /var/www/torqvio && docker ps"
           
   
