@@ -44,8 +44,8 @@ jobs:
       - name: Deploy all services to production
         run: |
           echo "Deploy all services to production VPS"
-          # Check what's actually in the docker-compose file:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && head -70 docker-compose.yml | grep -A5 -B5 landinpage"
+          # Test connectivity first
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
           # Deploy all services together using compose file:
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && docker-compose down && docker-compose up -d --build"
           
