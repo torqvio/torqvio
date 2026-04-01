@@ -27,7 +27,7 @@ services:
 
   backend:
     build:
-      context: ../backend
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8459:8459"
@@ -43,12 +43,12 @@ services:
       redis:
         condition: service_started
     volumes:
-      - ../backend:/app
+      - ./backend:/app
       - /app/node_modules
 
   frontend:
     build:
-      context: ../frontend
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "7243:7243"
@@ -57,23 +57,9 @@ services:
     depends_on:
       - backend
     volumes:
-      - ../frontend:/app
+      - ./frontend:/app
       - /app/node_modules
 
-  landingpage:
-    build:
-      context: ../landinpage
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8459
-    depends_on:
-      - backend
-    volumes:
-      - ../landinpage:/app
-      - /app/node_modules
-
-volumes:
+  volumes:
   postgres_data:
   redis_data:
