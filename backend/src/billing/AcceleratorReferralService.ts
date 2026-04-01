@@ -780,10 +780,12 @@ export class AcceleratorReferralService {
     switch (pattern.pattern) {
       case 'same_ip_multiple_referrals':
         // Check if multiple referrals from same advocate have same IP
-        const sameIpReferrals = Array.from(this.referrals.values())
-          .filter(r => r.advocateId === referral.advocateId && 
-                     r.trackingData.ipAddress === referral.trackingData.ipAddress);
-        return sameIpReferrals.length >= pattern.threshold;
+        {
+          const sameIpReferrals = Array.from(this.referrals.values())
+            .filter(r => r.advocateId === referral.advocateId && 
+                       r.trackingData.ipAddress === referral.trackingData.ipAddress);
+          return sameIpReferrals.length >= pattern.threshold;
+        }
       
       case 'rapid_conversions':
         // Check if conversion happened too quickly

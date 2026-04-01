@@ -128,7 +128,7 @@ export class AcceleratorSoftLimitsService {
       psychologicalMessaging: [
         {
           type: 'progress',
-          message: `You\'ve built ${currentUsage} amazing workflows! You\'re ${Math.round(percentageUsed)}% of the way to becoming an automation expert.`,
+          message: `You've built ${currentUsage} amazing workflows! You're ${Math.round(percentageUsed)}% of the way to becoming an automation expert.`,
           triggerPercentage: 50,
           emotion: 'positive',
           actionRequired: false
@@ -195,7 +195,7 @@ export class AcceleratorSoftLimitsService {
         },
         {
           type: 'authority',
-          message: `Your ${currentUsage} executions show you\'re ready for professional automation. Growth Mode is designed for teams at your scale.`,
+          message: `Your ${currentUsage} executions show you're ready for professional automation. Growth Mode is designed for teams at your scale.`,
           triggerPercentage: 75,
           emotion: 'positive',
           actionRequired: true

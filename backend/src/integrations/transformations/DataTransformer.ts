@@ -299,7 +299,9 @@ export class DataTransformer {
         }
 
         if (mappingResult.transformed) {
-          result.metadata.transformationsApplied++;
+          if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(mappingResult.value)) {
+            result.metadata.transformationsApplied++;
+          }
         }
       }
 
@@ -517,17 +519,19 @@ export class DataTransformer {
           break;
 
         case 'function':
-          const func = this.customFunctions.get(rule.config.functionName);
-          if (func) {
-            result.value = func(value, ...(rule.config.args || []));
-          } else {
-            result.success = false;
-            result.errors.push({
-              field: 'transformation',
-              message: `Function ${rule.config.functionName} not found`,
-              type: 'transformation',
-              severity: 'error'
-            });
+          {
+            const func = this.customFunctions.get(rule.config.functionName);
+            if (func) {
+              result.value = func(value, ...(rule.config.args || []));
+            } else {
+              result.success = false;
+              result.errors.push({
+                field: 'transformation',
+                message: `Function ${rule.config.functionName} not found`,
+                type: 'transformation',
+                severity: 'error'
+              });
+            }
           }
           break;
 
@@ -662,19 +666,25 @@ export class DataTransformer {
         return data;
       case 'transform':
         // Apply transformation to specified field
-        const field = action.config.field;
-        const transformation = action.config.transformation;
-        const transformResult = await this.applyTransformation(data[field], transformation);
-        return { ...data, [field]: transformResult.value };
+        {
+          const field = action.config.field;
+          const transformation = action.config.transformation;
+          const transformResult = await this.applyTransformation(data[field], transformation);
+          return { ...data, [field]: transformResult.value };
+        }
       case 'enrich':
         // Apply enrichment
-        const enrichmentResult = await this.applyEnrichmentRules(data, [action.config.enrichment]);
-        return enrichmentResult.data;
+        {
+          const enrichmentResult = await this.applyEnrichmentRules(data, [action.config.enrichment]);
+          return enrichmentResult.data;
+        }
       case 'validate':
         // Apply validation
-        const validationResult = await this.applyValidation(data[action.config.field], action.config.rules);
-        if (!validationResult.valid) {
-          // Handle validation failure
+        {
+          const validationResult = await this.applyValidation(data[action.config.field], action.config.rules);
+          if (!validationResult.valid) {
+            // Handle validation failure
+          }
         }
         return data;
       default:

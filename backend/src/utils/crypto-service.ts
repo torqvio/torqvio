@@ -310,7 +310,7 @@ export class CryptoService {
 
   private base64UrlDecode(str: string): string {
     str += '='.repeat((4 - str.length % 4) % 4);
-    return Buffer.from(str.replace(/\-/g, '+').replace(/_/g, '/'), 'base64').toString();
+    return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString();
   }
 
   // Security Utilities
@@ -369,7 +369,7 @@ export class CryptoService {
       feedback.push('Include numbers');
     }
 
-    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(password)) {
       score += 1;
     } else {
       feedback.push('Include special characters');

@@ -186,33 +186,39 @@ router.post('/:id/test', async (req, res) => {
     switch (integration.type) {
       case IntegrationType.STRIPE:
         // Test Stripe connectivity
-        const stripeConnector = new StripeConnector(integration.config);
-        const isValid = await stripeConnector.validateCredentials(integration.config);
-        testResult = {
-          success: isValid,
-          message: isValid ? 'Stripe connection successful' : 'Stripe credentials invalid'
-        };
+        {
+          const stripeConnector = new StripeConnector(integration.config);
+          const isValid = await stripeConnector.validateCredentials(integration.config);
+          testResult = {
+            success: isValid,
+            message: isValid ? 'Stripe connection successful' : 'Stripe credentials invalid'
+          };
+        }
         break;
       
       case IntegrationType.SHOPIFY:
         // Test Shopify connectivity
-        const shopifyConnector = new ShopifyConnector(integration.config);
-        const shopifyValid = await shopifyConnector.validateCredentials(integration.config);
-        testResult = {
-          success: shopifyValid,
-          message: shopifyValid ? 'Shopify connection successful' : 'Shopify credentials invalid'
-        };
+        {
+          const shopifyConnector = new ShopifyConnector(integration.config);
+          const shopifyValid = await shopifyConnector.validateCredentials(integration.config);
+          testResult = {
+            success: shopifyValid,
+            message: shopifyValid ? 'Shopify connection successful' : 'Shopify credentials invalid'
+          };
+        }
         break;
       
       case IntegrationType.CUSTOM_API:
       case IntegrationType.GENERIC:
         // Test Generic API connectivity
-        const genericConnector = new GenericAPIConnector(integration.config);
-        const genericValid = await genericConnector.validateCredentials(integration.config);
-        testResult = {
-          success: genericValid,
-          message: genericValid ? 'API connection successful' : 'API credentials invalid'
-        };
+        {
+          const genericConnector = new GenericAPIConnector(integration.config);
+          const genericValid = await genericConnector.validateCredentials(integration.config);
+          testResult = {
+            success: genericValid,
+            message: genericValid ? 'API connection successful' : 'API credentials invalid'
+          };
+        }
         break;
     }
 

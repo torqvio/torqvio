@@ -1,6 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
-import { IntegrationConnector, ExternalEvent, ProcessedEvent, GenericAPIConfig, WebhookConfig, MappedEvent } from '../types';
+import { IntegrationConnector, ExternalEvent, ProcessedEvent, GenericAPIConfig, WebhookConfig } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseConnection } from '../../database/connection.js';
 import { logger } from '../../utils/logger.js';

@@ -477,7 +477,7 @@ export class IntegrationService {
       ];
     } catch (error) {
       this.logger.error('Failed to get integration bundles', { error });
-      throw error;
+      return [];
     }
   }
 
