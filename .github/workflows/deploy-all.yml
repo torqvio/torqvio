@@ -4,6 +4,17 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_backend:
+        description: 'Deploy backend'
+        required: false
+        default: false
+        type: boolean
+      deploy_frontend:
+        description: 'Deploy frontend'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   detect-changes:
@@ -27,7 +38,7 @@ jobs:
 
   deploy-backend:
     needs: detect-changes
-    if: needs.detect-changes.outputs.backend == 'true'
+    if: (needs.detect-changes.outputs.backend == 'true') || (github.event.inputs.deploy_backend == 'true')
     runs-on: ubuntu-latest
     
     steps:
@@ -74,7 +85,7 @@ jobs:
           
   deploy-frontend:
     needs: detect-changes
-    if: needs.detect-changes.outputs.frontend == 'true'
+    if: (needs.detect-changes.outputs.frontend == 'true') || (github.event.inputs.deploy_frontend == 'true')
     runs-on: ubuntu-latest
     
     steps:
@@ -114,18 +125,4 @@ jobs:
           # Automated deployment via Docker with password authentication:
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && cd frontend && docker-compose down && docker-compose up -d --build"
           
-  deploy-all:
-    needs: [detect-changes, deploy-backend, deploy-frontend]
-    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Deployment Summary
-        run: |
-          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- Backend: ${{ needs.deploy-backend.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontend: ${{ needs.deploy-frontend.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Changes detected in:" >> $GITHUB_STEP_SUMMARY
-          echo "- Backend: ${{ needs.detect-changes.outputs.backend }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontend: ${{ needs.detect-changes.outputs.frontend }}" >> $GITHUB_STEP_SUMMARY
+  
