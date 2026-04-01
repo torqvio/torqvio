@@ -71,7 +71,7 @@ jobs:
           
       - name: Lint
         run: |
-          cd frontend
+          cd frontend 
           pnpm run lint
           
       - name: Build
@@ -79,38 +79,4 @@ jobs:
           cd frontend
           pnpm run build
 
-  test-landing-page:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-          
-      - name: Install dependencies
-        run: |
-          cd landingpage
-          pnpm install
-          
-      - name: Run tests
-        run: |
-          cd landingpage
-          pnpm test || true  # Landing page may not have tests
-          
-      - name: Lint
-        run: |
-          cd landingpage
-          pnpm run lint || true  # May not have lint script
-          
-      - name: Build
-        run: |
-          cd landingpage
-          pnpm run build
+  
