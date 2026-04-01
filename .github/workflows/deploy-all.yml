@@ -45,10 +45,14 @@ jobs:
         run: |
           echo "Deploy all services to production VPS"
           # Test connectivity first
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'" || exit 1
           # Pull latest changes and ensure docker-compose.yml exists
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && git checkout HEAD -- docker-compose.yml"
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && git pull origin main && git checkout HEAD -- docker-compose.yml" || exit 1
+          # Clear Docker cache and rebuild
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker system prune -f" || exit 1
           # Deploy all services together using compose file:
-          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker-compose down && docker-compose up -d --build"
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker-compose down && docker-compose up -d --build" || exit 1
+          # Verify services are running
+          sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/torqvio && docker ps"
           
   
