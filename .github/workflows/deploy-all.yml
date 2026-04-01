@@ -70,7 +70,7 @@ jobs:
           # Check if directory exists and show actual error:
           sshpass -p '${{ secrets.VPS_PASS }}' ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "ls -la /var/www/ || echo 'Directory does not exist'"
 
-deploy-manual:
+  deploy-manual:
     if: github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_backend == 'true' || github.event.inputs.deploy_frontend == 'true')
     runs-on: ubuntu-latest
     
