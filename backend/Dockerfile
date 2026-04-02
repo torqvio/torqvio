@@ -6,16 +6,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
 
 # Build the application
-RUN npm run build && ls -la dist/
-
-# Prune dev dependencies to keep production image small (but keep dist)
-RUN npm prune --production
+RUN npm run build
 
 # Expose port
 EXPOSE 8459
