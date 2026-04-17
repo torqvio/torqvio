@@ -56,9 +56,6 @@ services:
       NEXT_PUBLIC_API_URL: https://api.torqvio.com
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
 
 volumes:
   postgres_data:
