@@ -54,6 +54,7 @@ services:
       - "7243:7243"
     environment:
       NEXT_PUBLIC_API_URL: https://api.torqvio.com
+      PORT: 7243
     depends_on:
       - backend
 
