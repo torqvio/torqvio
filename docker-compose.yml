@@ -37,6 +37,8 @@ services:
       NODE_ENV: development
       JWT_SECRET: your-jwt-secret-key
       API_KEY_SECRET: your-api-secret-key
+      PORT: 8459
+      API_PORT: 8459
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,7 +56,6 @@ services:
       - "7243:7243"
     environment:
       NEXT_PUBLIC_API_URL: https://api.torqvio.com
-      PORT: 7243
     depends_on:
       - backend
 
