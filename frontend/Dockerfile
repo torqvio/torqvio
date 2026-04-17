@@ -22,4 +22,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:7243 || exit 1
 
 # Start the application
-CMD ["npm", "run", "start"]
+CMD ["npx", "next", "start", "-p", "7243"]
