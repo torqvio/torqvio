@@ -4,7 +4,6 @@ node_modules/
 .yarn/
 bower_components/
 yarn.lock
-pnpm-lock.yaml
 
 # ---- Build output ----
 dist/
