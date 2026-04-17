@@ -53,7 +53,7 @@ services:
     ports:
       - "7243:7243"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8459
+      NEXT_PUBLIC_API_URL: https://api.torqvio.com
     depends_on:
       - backend
     volumes:
