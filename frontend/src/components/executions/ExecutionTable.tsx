@@ -54,13 +54,18 @@ function ExecutionRow({
       </td>
       <td className="py-3">
         <div>
-          <Link 
+          <Link
             href={`/dashboard/workflows/${execution.workflowId}`}
             className="text-sm font-medium text-white hover:text-purple-400 transition-colors"
           >
             {execution.workflowName}
           </Link>
-          <div className="text-xs text-gray-400 mt-0.5">{execution.id}</div>
+          <Link
+            href={`/dashboard/executions/${execution.id}`}
+            className="block text-xs text-gray-500 hover:text-gray-300 transition-colors mt-0.5 font-mono"
+          >
+            {execution.id}
+          </Link>
         </div>
       </td>
       <td className="py-3">
@@ -92,11 +97,11 @@ function ExecutionRow({
         </div>
       </td>
       <td className="py-3 text-right">
-        <ExecutionActions 
+        <ExecutionActions
           execution={execution}
           onRetry={onRetry}
           onCancel={onCancel}
-          onView={(id) => console.log('View execution:', id)}
+          onView={(id) => { window.location.href = `/dashboard/executions/${id}` }}
         />
       </td>
     </tr>

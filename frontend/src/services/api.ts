@@ -54,11 +54,9 @@ class ApiClient {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new ApiError(
-          data.message || `HTTP error! status: ${response.status}`,
-          response.status,
-          data
-        )
+        const rawMsg = data.error || data.message
+        const msg = typeof rawMsg === 'string' ? rawMsg : `HTTP error ${response.status}`
+        throw new ApiError(msg, response.status, data)
       }
 
       return data

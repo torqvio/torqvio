@@ -58,7 +58,7 @@ export function RecentActivity({ activities: initialActivities }: RecentActivity
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-text-primary">Recent Activity</h2>
+          <span className="text-xs font-semibold uppercase tracking-widest text-text-muted">Activity</span>
           <div
             className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
               isLive
@@ -108,7 +108,11 @@ export function RecentActivity({ activities: initialActivities }: RecentActivity
               const config = statusConfig[row.status]
               const Icon = config.icon
               return (
-                <tr key={row.id} className="border-b border-border last:border-0 hover:bg-surface-light/50 transition-colors">
+                <tr
+                  key={row.id}
+                  className="border-b border-border last:border-0 hover:bg-surface-light/50 transition-colors cursor-pointer"
+                  onClick={() => { window.location.href = `/dashboard/executions/${row.id}` }}
+                >
                   <td className="px-4 py-2.5">
                     <Icon className={`w-4 h-4 ${config.color} ${row.status === 'running' ? 'animate-spin' : ''}`} />
                   </td>

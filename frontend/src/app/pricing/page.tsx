@@ -1,274 +1,182 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/providers/AuthProvider'
-import { SubscriptionModal } from '@/components/SubscriptionModal'
-import PricingPlans from '@/components/pricing/PricingPlans'
+import AdaptivePricingPlans from '@/components/pricing/AdaptivePricingPlans'
 import PricingFeatures from '@/components/pricing/PricingFeatures'
-import PricingBackground from '@/components/pricing/PricingBackground'
 import PricingNavbar from '@/components/pricing/PricingNavbar'
 import PricingFooter from '@/components/pricing/PricingFooter'
 import { billingApi, ApiError } from '@/utils/api'
+import type { AdaptivePlan, TenantPlan } from '@/types/billing'
 
-
-interface PricingPlan {
-  id: string;
-  name: string;
-  price: number | null;
-  description: string;
-  limits: {
-    projects: number;
-    workflows: number;
-    executionsPerMonth: number;
-    concurrency: number;
-    logsRetentionDays: number;
-    retryPolicies: 'basic' | 'standard' | 'advanced';
-    support: 'community' | 'email' | 'priority' | 'dedicated';
-    features: string[];
-    sla?: string;
-  };
-  overageRates: {
-    executionRate: number;
-    stepRuns: boolean;
-  };
-  position: number;
-}
-
-interface CurrentPlan {
-  plan: PricingPlan;
-  status: 'trial' | 'active' | 'canceled' | 'past_due';
-  trialEndsAt?: Date;
-  currentPeriodEnd?: Date;
-  usage: {
-    executionsPerMonth: number;
-    stepRuns: number;
-    projects: number;
-    workflows: number;
-    concurrency: number;
-    apiCalls: number;
-  };
-  addOns: Array<{
-    addOnId: string;
-    active: boolean;
-    subscribedAt?: Date;
-  }>;
-}
-
-interface AddOn {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  features: string[];
-}
+const MOCK_PLANS: AdaptivePlan[] = [
+  {
+    id: 'builder',
+    mode: 'builder',
+    name: 'Builder Mode',
+    basePrice: 0,
+    pricingModel: 'static',
+    description: 'For devs and indie hackers. Unlimited experimentation, hard limits on impact.',
+    outcome: 'Build and test workflows without friction',
+    limits: {
+      revenueGeneratedPerMonth: 1000,
+      workflowsInProduction: 3,
+      integrations: 5,
+      teamMembers: 2,
+      executionsPerMonth: 10000,
+      concurrency: 5,
+      logsRetentionDays: 7,
+      retryPolicies: 'basic',
+      support: 'community',
+      features: ['basic_retries', 'community_support', 'webhooks', 'scheduler'],
+    },
+    scalingRules: {
+      executionThresholds: [],
+      valueBasedScaling: false,
+      revenueShareRate: 0,
+      minimumMonthlyFee: 0,
+      impactLimits: { maxRevenueGenerated: 1000, maxWorkflowsInProduction: 3 },
+    },
+    capabilities: [],
+    position: 1,
+  },
+  {
+    id: 'growth',
+    mode: 'growth',
+    name: 'Growth Mode',
+    basePrice: 29,
+    pricingModel: 'adaptive',
+    description: 'Auto-scaling pricing based on your success. Pay as you grow.',
+    outcome: 'Scale your business with automated workflows',
+    limits: {
+      revenueGeneratedPerMonth: -1,
+      workflowsInProduction: -1,
+      integrations: -1,
+      teamMembers: -1,
+      executionsPerMonth: -1,
+      concurrency: -1,
+      logsRetentionDays: 30,
+      retryPolicies: 'standard',
+      support: 'email',
+      features: ['standard_retries', 'email_support', 'webhooks', 'scheduler', 'priority_queue'],
+    },
+    scalingRules: {
+      executionThresholds: [
+        { executions: 10000, price: 29 },
+        { executions: 100000, price: 79 },
+        { executions: 1000000, price: 249 },
+      ],
+      valueBasedScaling: true,
+      revenueShareRate: 0,
+      minimumMonthlyFee: 29,
+      impactLimits: { maxRevenueGenerated: -1, maxWorkflowsInProduction: -1 },
+    },
+    capabilities: [],
+    position: 2,
+  },
+  {
+    id: 'autopilot',
+    mode: 'autopilot',
+    name: 'Autopilot Mode',
+    basePrice: 0,
+    pricingModel: 'revenue_share',
+    description: 'We take 2-5% of the value we generate. Zero upfront cost.',
+    outcome: 'Guaranteed outcomes powered by execution',
+    limits: {
+      revenueGeneratedPerMonth: -1,
+      workflowsInProduction: -1,
+      integrations: -1,
+      teamMembers: -1,
+      executionsPerMonth: -1,
+      concurrency: -1,
+      logsRetentionDays: -1,
+      retryPolicies: 'advanced',
+      support: 'dedicated',
+      features: ['all_features', 'ai_optimization', 'priority_support', 'custom_integrations'],
+    },
+    scalingRules: {
+      executionThresholds: [],
+      valueBasedScaling: true,
+      revenueShareRate: 0.03,
+      minimumMonthlyFee: 0,
+      impactLimits: { maxRevenueGenerated: -1, maxWorkflowsInProduction: -1 },
+    },
+    capabilities: [],
+    position: 3,
+  },
+]
 
 export default function PricingPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
-  const [showCalculator, setShowCalculator] = useState(false)
-  const [calculatorExecutions, setCalculatorExecutions] = useState(10000)
-  const [plans, setPlans] = useState<PricingPlan[]>([])
-  const [currentPlan, setCurrentPlan] = useState<CurrentPlan | null>(null)
-  const [addOns, setAddOns] = useState<AddOn[]>([])
+  const { isAuthenticated } = useAuth()
+  const [plans, setPlans] = useState<AdaptivePlan[]>([])
+  const [currentPlan, setCurrentPlan] = useState<TenantPlan | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null)
+  const [selectedPlan, setSelectedPlan] = useState<AdaptivePlan | null>(null)
   const [subscribing, setSubscribing] = useState(false)
-  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
-    fetchPlans()
-    fetchCurrentPlan()
-    fetchAddOns()
+    Promise.all([fetchPlans(), fetchCurrentPlan()]).finally(() => setLoading(false))
   }, [])
 
   const fetchPlans = async () => {
     try {
       const data = await billingApi.getPlans()
-      setPlans(data.plans.sort((a: PricingPlan, b: PricingPlan) => a.position - b.position))
-    } catch (error) {
-      console.error('Failed to fetch plans:', error)
-      // Fallback to mock data if backend is not available
-      setMockPlans()
+      const sorted = (data.plans as AdaptivePlan[]).sort((a, b) => a.position - b.position)
+      setPlans(sorted)
+    } catch {
+      setPlans(MOCK_PLANS)
     }
   }
 
   const fetchCurrentPlan = async () => {
     try {
       const data = await billingApi.getCurrentPlan()
-      setCurrentPlan(data)
-    } catch (error) {
-      console.error('Failed to fetch current plan:', error)
-      // Don't show error for unauthenticated users
-    } finally {
-      setLoading(false)
+      setCurrentPlan(data as TenantPlan)
+    } catch {
+      // Unauthenticated users have no current plan — that's fine
     }
   }
 
-  const fetchAddOns = async () => {
-    try {
-      const data = await billingApi.getAddOns()
-      setAddOns(data.addOns)
-    } catch (error) {
-      console.error('Failed to fetch add-ons:', error)
-      // Fallback to mock data if backend is not available
-      setMockAddOns()
-    }
-  }
-
-  const setMockPlans = () => {
-    const mockPlans: PricingPlan[] = [
-      {
-        id: 'bulldog',
-        name: 'BULLDOG MODE',
-        price: 0,
-        description: 'Perfect for getting started and personal projects',
-        limits: {
-          projects: 3,
-          workflows: 5,
-          executionsPerMonth: 1000,
-          concurrency: 2,
-          logsRetentionDays: 7,
-          retryPolicies: 'basic',
-          support: 'community',
-          features: ['durable_execution', 'basic_retries', 'webhook_ingestion', 'api_access']
-        },
-        overageRates: {
-          executionRate: 0.001,
-          stepRuns: true
-        },
-        position: 1
-      },
-      {
-        id: 'grubin',
-        name: 'GRUBIN MODE',
-        price: 49,
-        description: 'For growing teams and production workloads',
-        limits: {
-          projects: 10,
-          workflows: 25,
-          executionsPerMonth: 10000,
-          concurrency: 5,
-          logsRetentionDays: 30,
-          retryPolicies: 'standard',
-          support: 'email',
-          features: ['durable_execution', 'advanced_retries', 'webhook_ingestion', 'api_access', 'monitoring', 'alerts']
-        },
-        overageRates: {
-          executionRate: 0.0005,
-          stepRuns: true
-        },
-        position: 2
-      },
-      {
-        id: 'autopilot',
-        name: 'AUTOPILOT MODE',
-        price: 199,
-        description: 'Advanced features for scale and reliability',
-        limits: {
-          projects: -1,
-          workflows: -1,
-          executionsPerMonth: 100000,
-          concurrency: 20,
-          logsRetentionDays: 90,
-          retryPolicies: 'advanced',
-          support: 'priority',
-          features: ['durable_execution', 'advanced_retries', 'webhook_ingestion', 'api_access', 'monitoring', 'alerts', 'sla_guarantee', 'priority_support'],
-          sla: '99.9%'
-        },
-        overageRates: {
-          executionRate: 0.0002,
-          stepRuns: true
-        },
-        position: 3
-      }
-    ]
-    setPlans(mockPlans)
-  }
-
-  const setMockAddOns = () => {
-    const mockAddOns: AddOn[] = [
-      {
-        id: 'advanced-monitoring',
-        name: 'Advanced Monitoring',
-        price: 29,
-        description: 'Enhanced observability with custom dashboards and alerts',
-        features: ['Custom dashboards', 'Advanced alerting', 'Performance analytics', 'Export capabilities']
-      },
-      {
-        id: 'priority-queue',
-        name: 'Priority Queue',
-        price: 49,
-        description: 'Guaranteed execution priority for critical workflows',
-        features: ['Priority execution', 'Dedicated resources', 'Faster processing', 'SLA guarantee']
-      }
-    ]
-    setAddOns(mockAddOns)
-  }
-
-  const handleSubscribe = (plan: PricingPlan) => {
-    if (plan.id === 'enterprise') {
-      window.location.href = 'mailto:sales@torqvio.com?subject=Enterprise Plan Inquiry&body=Hi, I\'m interested in the Enterprise plan for Torqvio.'
+  const handleSubscribe = async (plan: AdaptivePlan) => {
+    if (plan.pricingModel === 'static') {
+      // Free plan — send to register/login
+      router.push('/login?tab=register')
       return
     }
-    
-    setSelectedPlan(plan)
-    setShowModal(true)
-  }
 
-  const handleModalSubscribe = async (userData: { email: string; name: string; company?: string }) => {
-    if (!selectedPlan) return
-    
+    if (plan.pricingModel === 'revenue_share') {
+      // Autopilot requires qualification — contact sales
+      window.location.href = `mailto:sales@aetherflow.dev?subject=Autopilot Mode Application&body=Hi, I'd like to apply for Autopilot Mode.`
+      return
+    }
+
+    // Growth — create Stripe checkout session
+    if (!isAuthenticated) {
+      router.push(`/login?tab=register&plan=${plan.id}`)
+      return
+    }
+
+    setSelectedPlan(plan)
     setSubscribing(true)
-    
     try {
-      console.log('Subscription data:', { plan: selectedPlan.id, ...userData })
-      
-      // For free plans, just subscribe directly
-      if (selectedPlan.price === 0) {
-        // TODO: Call API to subscribe to free plan
-        console.log('Subscribing to free plan:', selectedPlan.id)
-        setShowModal(false)
-        setSelectedPlan(null)
-        return
+      const data = await billingApi.subscribe(plan.id) as { checkoutUrl?: string }
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
       }
-      
-      // For paid plans, redirect to payment processor
-      if (selectedPlan.price && selectedPlan.price > 0) {
-        // TODO: Create checkout session and redirect to Stripe/payment processor
-        console.log('Redirecting to payment for plan:', selectedPlan.id)
-        
-        // For now, just show success (in real app, redirect to Stripe Checkout)
-        alert(`Would redirect to payment processor for $${selectedPlan.price}/month plan. User: ${userData.email}`)
-        setShowModal(false)
-        setSelectedPlan(null)
-        return
-      }
-      
-      // For custom pricing (null), contact sales
-      if (selectedPlan.price === null) {
-        window.location.href = `mailto:sales@torqvio.com?subject=Custom Plan Inquiry&body=Hi, I'm interested in a custom plan. Name: ${userData.name}, Email: ${userData.email}, Company: ${userData.company || 'N/A'}`
-        setShowModal(false)
-        setSelectedPlan(null)
-        return
-      }
-      
     } catch (error) {
       console.error('Subscription error:', error)
-      // TODO: Show error message to user
     } finally {
       setSubscribing(false)
+      setSelectedPlan(null)
     }
   }
-
-  const goToLogin = () => router.push('/login')
-  const goToSignup = () => router.push('/login?tab=register')
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0B0F14] text-white flex items-center justify-center">
-        <div className="relative z-10">Loading pricing...</div>
+        <div className="relative z-10 text-gray-500 text-sm">Loading pricing...</div>
       </div>
     )
   }
@@ -276,48 +184,36 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen text-white">
       <div className="relative z-10">
-        <PricingNavbar onLogin={goToLogin} onSignup={goToSignup} />
-        
+        <PricingNavbar
+          onLogin={() => router.push('/login')}
+          onSignup={() => router.push('/login?tab=register')}
+        />
+
         <main className="container mx-auto px-6 pt-32 pb-16 max-w-6xl">
-          <PricingPlans
+          <AdaptivePricingPlans
             plans={plans}
             currentPlan={currentPlan}
             selectedPlan={selectedPlan}
             subscribing={subscribing}
-            showCalculator={showCalculator}
-            calculatorExecutions={calculatorExecutions}
             onSubscribe={handleSubscribe}
-            onCalculatorChange={setCalculatorExecutions}
-            onToggleCalculator={() => setShowCalculator(!showCalculator)}
           />
 
-          <PricingFeatures addOns={addOns} currentPlan={currentPlan} />
+          <PricingFeatures addOns={[]} currentPlan={null} />
 
           <div className="text-center border-t border-[#1A1F2E] pt-16">
             <p className="text-sm text-gray-500">
               Questions about pricing?{' '}
-              <a href="mailto:sales@torqvio.com" className="text-gray-300 hover:text-white transition-colors underline underline-offset-2">
+              <a
+                href="mailto:sales@aetherflow.dev"
+                className="text-gray-300 hover:text-white transition-colors underline underline-offset-2"
+              >
                 Contact our sales team
               </a>
             </p>
           </div>
         </main>
-        
+
         <PricingFooter />
-        
-        {/* Subscription Modal */}
-        {selectedPlan && (
-          <SubscriptionModal
-            isOpen={showModal}
-            onClose={() => {
-              setShowModal(false)
-              setSelectedPlan(null)
-            }}
-            plan={selectedPlan}
-            onSubscribe={handleModalSubscribe}
-            isLoading={subscribing}
-          />
-        )}
       </div>
     </div>
   )

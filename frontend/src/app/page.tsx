@@ -6,8 +6,9 @@ import { useAuth } from '@/providers/AuthProvider'
 import { useEffect } from 'react'
 import {
   ArrowRight, Shield, RefreshCw, Webhook,
-  Activity, ChevronRight, CheckCircle2, Zap, Github
+  Activity, ChevronRight, CheckCircle2, Zap
 } from 'lucide-react'
+import GithubIcon from '@/components/ui/GithubIcon'
 import PublicNavbar from '@/components/layout/PublicNavbar'
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ function Hero({ onSignup }: { onSignup: () => void }) {
         </motion.button>
 
         <button className="flex items-center gap-2 text-gray-300 hover:text-white text-sm px-5 py-3 rounded-xl border border-[#2A3142] hover:border-[#3A4152] transition-colors bg-[#141926]/60">
-          <Github size={16} />
+          <GithubIcon size={16} />
           View on GitHub
         </button>
       </motion.div>

@@ -276,17 +276,21 @@ export class AdaptivePricingService {
 
   async getCurrentPlan(tenantId: string): Promise<TenantPlan> {
     const subscription = await this.getActiveSubscription(tenantId);
-    
+    const usage = await this.getCurrentUsage(tenantId);
+    const outcomes = await this.getCurrentOutcomes(tenantId);
+
     if (!subscription) {
+      const plan = this.adaptivePlans.get('builder')!;
+      const capabilities = [this.capabilityLayers.get('core')!];
       return {
-        plan: this.adaptivePlans.get('builder')!,
+        plan,
         mode: 'builder',
         status: 'trial',
         trialEndsAt: this.calculateTrialEnd(tenantId),
-        usage: await this.getCurrentUsage(tenantId),
-        outcomes: await this.getCurrentOutcomes(tenantId),
-        capabilities: [this.capabilityLayers.get('core')!],
-        billing: await this.calculateHybridBilling(tenantId)
+        usage,
+        outcomes,
+        capabilities,
+        billing: this.computeBilling(plan, usage, outcomes, capabilities),
       };
     }
 
@@ -300,10 +304,10 @@ export class AdaptivePricingService {
       mode: plan.mode,
       status: subscription.status,
       currentPeriodEnd: subscription.currentPeriodEnd,
-      usage: await this.getCurrentUsage(tenantId),
-      outcomes: await this.getCurrentOutcomes(tenantId),
+      usage,
+      outcomes,
       capabilities: plan.capabilities,
-      billing: await this.calculateHybridBilling(tenantId)
+      billing: this.computeBilling(plan, usage, outcomes, plan.capabilities),
     };
   }
 
@@ -334,102 +338,78 @@ export class AdaptivePricingService {
     };
   }
 
-  // NEW: Calculate hybrid billing (subscription + usage + outcomes + revenue share)
   async calculateHybridBilling(tenantId: string): Promise<HybridBilling> {
-    const currentPlan = await this.getCurrentPlan(tenantId);
-    const usage = currentPlan.usage;
-    const outcomes = currentPlan.outcomes;
-    
-    let baseSubscription = currentPlan.plan.basePrice;
+    const tenantPlan = await this.getCurrentPlan(tenantId);
+    return tenantPlan.billing;
+  }
+
+  private computeBilling(
+    plan: AdaptivePlan,
+    usage: AdaptiveUsage,
+    outcomes: OutcomeMetrics,
+    capabilities: CapabilityLayer[],
+  ): HybridBilling {
+    let baseSubscription = plan.basePrice;
     let usageCharges = 0;
     let outcomeCharges = 0;
     let revenueShare = 0;
-    
+
     const usageBreakdown: { metric: string; quantity: number; rate: number; charge: number }[] = [];
     const outcomeBreakdown: { metric: string; value: number; rate: number; charge: number }[] = [];
 
-    // Calculate adaptive pricing for Growth Mode
-    if (currentPlan.plan.pricingModel === 'adaptive') {
-      const executions = usage.executionsPerMonth;
-      const thresholds = currentPlan.plan.scalingRules.executionThresholds;
-      
-      for (const threshold of thresholds) {
-        if (executions <= threshold.executions) {
+    if (plan.pricingModel === 'adaptive') {
+      for (const threshold of plan.scalingRules.executionThresholds) {
+        if (usage.executionsPerMonth <= threshold.executions) {
           baseSubscription = threshold.price;
           break;
         }
       }
     }
 
-    // Calculate revenue share for Autopilot Mode
-    if (currentPlan.plan.pricingModel === 'revenue_share') {
-      const shareRate = currentPlan.plan.scalingRules.revenueShareRate;
-      const generatedValue = outcomes.valueGenerated;
-      revenueShare = generatedValue * shareRate;
-      
-      baseSubscription = Math.max(revenueShare, currentPlan.plan.scalingRules.minimumMonthlyFee);
+    if (plan.pricingModel === 'revenue_share') {
+      revenueShare = outcomes.valueGenerated * plan.scalingRules.revenueShareRate;
+      baseSubscription = Math.max(revenueShare, plan.scalingRules.minimumMonthlyFee);
     }
 
-    // Calculate usage overages
-    if (currentPlan.plan.limits.executionsPerMonth !== -1 && usage.executionsPerMonth > currentPlan.plan.limits.executionsPerMonth) {
-      const overage = usage.executionsPerMonth - currentPlan.plan.limits.executionsPerMonth;
-      const rate = 0.001; // Default overage rate
+    if (plan.limits.executionsPerMonth !== -1 && usage.executionsPerMonth > plan.limits.executionsPerMonth) {
+      const overage = usage.executionsPerMonth - plan.limits.executionsPerMonth;
+      const rate = 0.001;
       const charge = overage * rate;
       usageCharges += charge;
-      
-      usageBreakdown.push({
-        metric: 'executions',
-        quantity: overage,
-        rate,
-        charge
-      });
+      usageBreakdown.push({ metric: 'executions', quantity: overage, rate, charge });
     }
 
-    // Calculate outcome-based charges
     if (outcomes.timeSaved > 0) {
-      const timeValue = outcomes.timeSaved * 50; // €50/hour value
-      const rate = 0.1; // 10% of time value
+      const timeValue = outcomes.timeSaved * 50;
+      const rate = 0.1;
       const charge = timeValue * rate;
       outcomeCharges += charge;
-      
-      outcomeBreakdown.push({
-        metric: 'time_saved',
-        value: timeValue,
-        rate,
-        charge
-      });
+      outcomeBreakdown.push({ metric: 'time_saved', value: timeValue, rate, charge });
     }
 
-    // Calculate capability charges
     let capabilityCharges = 0;
     const capabilityBreakdown: { name: string; price: number }[] = [];
-    
-    for (const capability of currentPlan.capabilities) {
+    for (const capability of capabilities) {
       if (capability.price > 0) {
         capabilityCharges += capability.price;
-        capabilityBreakdown.push({
-          name: capability.name,
-          price: capability.price
-        });
+        capabilityBreakdown.push({ name: capability.name, price: capability.price });
       }
     }
-
-    const total = baseSubscription + usageCharges + outcomeCharges + revenueShare + capabilityCharges;
 
     return {
       baseSubscription,
       usageCharges,
       outcomeCharges,
       revenueShare,
-      total,
+      total: baseSubscription + usageCharges + outcomeCharges + revenueShare + capabilityCharges,
       currency: 'USD',
       breakdown: {
-        subscription: { name: currentPlan.plan.name, price: baseSubscription },
+        subscription: { name: plan.name, price: baseSubscription },
         usage: usageBreakdown,
         outcomes: outcomeBreakdown,
-        revenueShare: { generated: outcomes.valueGenerated, rate: currentPlan.plan.scalingRules.revenueShareRate, charge: revenueShare },
-        capabilities: capabilityBreakdown
-      }
+        revenueShare: { generated: outcomes.valueGenerated, rate: plan.scalingRules.revenueShareRate, charge: revenueShare },
+        capabilities: capabilityBreakdown,
+      },
     };
   }
 

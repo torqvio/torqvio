@@ -89,7 +89,7 @@ export function MetricsCarousel({ metrics, timeRange, onTimeRangeChange }: Metri
     <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-text-primary">Execution Metrics</h2>
+        <span className="text-xs font-semibold uppercase tracking-widest text-text-muted">Metrics</span>
         <div className="flex items-center gap-2">
           {/* Time Range Selector */}
           <div className="flex bg-surface rounded-lg p-0.5 border border-border">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -254,9 +255,14 @@ export default function RegisterForm({ onSubmit, loading, success, serverError }
 
       <p className="text-xs text-gray-600 text-center pt-3">
         By creating an account you agree to our{' '}
-        <span className="text-purple-400 cursor-pointer hover:text-purple-300 transition-colors">Terms</span>
+        <Link href="/terms" className="text-purple-400 hover:text-purple-300 transition-colors">
+          Terms
+        </Link>
         {' '}and{' '}
-        <span className="text-purple-400 cursor-pointer hover:text-purple-300 transition-colors">Privacy Policy</span>.
+        <Link href="/privacy" className="text-purple-400 hover:text-purple-300 transition-colors">
+          Privacy Policy
+        </Link>
+        .
       </p>
     </motion.form>
   )

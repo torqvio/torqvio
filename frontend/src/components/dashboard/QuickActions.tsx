@@ -7,37 +7,35 @@ interface QuickAction {
   label: string
   icon: typeof Plus
   href: string
+  primary?: boolean
 }
 
 const actions: QuickAction[] = [
-  { label: 'Create Workflow', icon: Plus, href: '/dashboard/workflows/new' },
-  { label: 'Failed Executions', icon: XCircle, href: '/dashboard/executions?status=failed' },
-  { label: 'Create Webhook', icon: Webhook, href: '/dashboard/webhooks/new' },
-  { label: 'Open Playground', icon: Terminal, href: '/dashboard/playground' },
-  { label: 'View Logs', icon: ScrollText, href: '/dashboard/logs' },
-  { label: 'Manage API Keys', icon: KeyRound, href: '/dashboard/settings/api-keys' },
+  { label: 'New Workflow', icon: Plus, href: '/dashboard/workflows/new', primary: true },
+  { label: 'Playground',   icon: Terminal, href: '/dashboard/playground' },
+  { label: 'Webhooks',     icon: Webhook,  href: '/dashboard/webhooks/new' },
+  { label: 'Logs',         icon: ScrollText, href: '/dashboard/logs' },
+  { label: 'API Keys',     icon: KeyRound, href: '/dashboard/settings/api-keys' },
+  { label: 'Failed',       icon: XCircle,  href: '/dashboard/executions?status=failed' },
 ]
 
 export function QuickActions() {
   return (
-    <div className="space-y-3">
-      <h2 className="text-lg font-semibold text-text-primary">Quick Actions</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {actions.map((action) => (
-          <Link
-            key={action.label}
-            href={action.href}
-            className="flex flex-col items-center gap-2.5 p-4 rounded-lg border border-border bg-surface hover:bg-surface-light hover:border-primary/30 transition-all group"
-          >
-            <div className="p-2.5 rounded-lg bg-surface-light group-hover:bg-primary/10 transition-colors">
-              <action.icon className="w-5 h-5 text-text-secondary group-hover:text-primary transition-colors" />
-            </div>
-            <span className="text-xs font-medium text-text-secondary group-hover:text-text-primary text-center transition-colors">
-              {action.label}
-            </span>
-          </Link>
-        ))}
-      </div>
+    <div className="flex items-center gap-2 flex-wrap">
+      {actions.map((action) => (
+        <Link
+          key={action.label}
+          href={action.href}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+            action.primary
+              ? 'bg-primary text-white hover:bg-primary/90'
+              : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:border-border/80 hover:bg-surface-light'
+          }`}
+        >
+          <action.icon className="w-3.5 h-3.5" />
+          {action.label}
+        </Link>
+      ))}
     </div>
   )
 }

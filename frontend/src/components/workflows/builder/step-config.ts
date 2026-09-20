@@ -14,7 +14,6 @@ import {
   RotateCcw,
   MessageSquare,
   CreditCard,
-  Github,
   Link2,
 } from 'lucide-react'
 import type { StepType } from './types'
@@ -178,7 +177,7 @@ export const stepTypeConfig: Record<StepType, StepConfig> = {
   },
   github: {
     label: 'GitHub',
-    icon: Github,
+    icon: GitBranch,
     description: 'Repo / PR actions',
     category: 'integration',
     headerColor: 'bg-orange-500',

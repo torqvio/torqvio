@@ -2,8 +2,8 @@
 
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Github } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import GithubIcon from '@/components/ui/GithubIcon'
 
 interface PricingNavbarProps {
   onLogin: () => void
@@ -74,7 +74,7 @@ export default function PricingNavbar({ onLogin, onSignup }: PricingNavbarProps)
         >
           <span className="truncate">
             <span className="flex items-center gap-1">
-              <Github className="w-4 h-4" />
+              <GithubIcon className="w-4 h-4" />
               {githubStars === null ? (
                 <span className="animate-pulse">...</span>
               ) : (

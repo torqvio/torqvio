@@ -113,9 +113,27 @@ router.post('/register', async (req: Request, res: Response) => {
     const db = DatabaseConnection.getInstance();
     await ensurePasswordColumn(db);
 
-    const existing = await db.queryOne('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    const existing = await db.queryOne<{ id: string; email: string; name: string; role: string; avatar_url: string; password_hash: string | null }>(
+      'SELECT id, email, name, role, avatar_url, password_hash FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
     if (existing) {
-      return res.status(409).json({ error: 'An account with this email already exists' });
+      if (existing.password_hash) {
+        return res.status(409).json({ error: 'An account with this email already exists' });
+      }
+      // OAuth-only account — add a password and link it
+      const passwordHash = await hashPassword(password);
+      await db.query(
+        'UPDATE users SET password_hash = $1, name = $2, updated_at = NOW() WHERE id = $3',
+        [passwordHash, name, existing.id]
+      );
+      const token = generateToken({ userId: existing.id, email: existing.email, role: existing.role as 'admin' | 'user' | 'viewer' });
+      logger.info('Password added to OAuth account', { userId: existing.id, email: existing.email });
+      return res.status(200).json({
+        token,
+        user: { id: existing.id, email: existing.email, name: existing.name, role: existing.role, avatar_url: existing.avatar_url },
+      });
     }
 
     const passwordHash = await hashPassword(password);
@@ -553,19 +571,16 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     }
 
     const userId = (tokenResult as any).rows[0].user_id;
-    
-    // Hash new password using scrypt
-    const salt = randomBytes(16).toString('hex');
-    const hashedPassword = (await scryptAsync(newPassword, salt, 64)) as Buffer;
-    const hashedPasswordHex = hashedPassword.toString('hex');
-    
+
+    const passwordHash = await hashPassword(newPassword);
+
     // Update password and mark token as used
     await db.query('BEGIN');
-    
+
     try {
       await db.query(
         'UPDATE users SET password_hash = $1 WHERE id = $2',
-        [hashedPassword, userId]
+        [passwordHash, userId]
       );
       
       await db.query(

@@ -1,7 +1,8 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Github, Star, Users, Zap, Shield, ChevronRight } from 'lucide-react'
+import { Star, Users, Zap, Shield, ChevronRight } from 'lucide-react'
+import GithubIcon from '@/components/ui/GithubIcon'
 
 interface GitHubHeaderProps {
   stars?: number;
@@ -34,7 +35,7 @@ export function GitHubHeader({ stars = 99300, contributors = 150, version = "v2.
         >
           <span className="truncate">
             <span className="flex items-center gap-1">
-              <Github className="w-4 h-4" />
+              <GithubIcon className="w-4 h-4" />
               {stars >= 1000 ? `${(stars / 1000).toFixed(1)}K` : stars}
             </span>
           </span>

@@ -2,7 +2,8 @@
 
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { Github, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import GithubIcon from '@/components/ui/GithubIcon'
 import { useState, useEffect } from 'react'
 
 interface PublicNavbarProps {
@@ -99,7 +100,7 @@ export default function PublicNavbar({ currentPage, onLogin, onSignup }: PublicN
         >
           <span className="truncate">
             <span className="flex items-center gap-1">
-              <Github className="w-4 h-4" />
+              <GithubIcon className="w-4 h-4" />
               {githubStars === null ? (
                 <span className="animate-pulse">...</span>
               ) : (
